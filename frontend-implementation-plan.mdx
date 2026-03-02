@@ -1,0 +1,770 @@
+# 🫁 Lung Disease Detection — Frontend Implementation Plan
+
+> **Stack:** Next.js 14 (App Router) · React 18 · TypeScript 5.2 · Tailwind CSS  
+> **Status key:** ☐ Not started · ⚙️ In progress · ✅ Done
+
+---
+
+## 📁 Project Structure
+
+Before building anything, your folder structure should look like this:
+
+```
+src/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   └── verify-otp/
+│   │       └── page.tsx
+│   ├── (dashboard)/
+│   │   ├── layout.tsx                  ← shared dashboard shell
+│   │   ├── radiologist/
+│   │   │   ├── page.tsx                ← radiologist home
+│   │   │   ├── upload/
+│   │   │   │   └── page.tsx
+│   │   │   ├── cases/
+│   │   │   │   ├── page.tsx            ← cases queue
+│   │   │   │   └── [caseId]/
+│   │   │   │       └── page.tsx        ← review predictions
+│   │   │   └── profile/
+│   │   │       └── page.tsx
+│   │   ├── doctor/
+│   │   │   ├── page.tsx                ← doctor home
+│   │   │   ├── cases/
+│   │   │   │   ├── page.tsx            ← diagnosis queue
+│   │   │   │   └── [caseId]/
+│   │   │   │       └── page.tsx        ← diagnosis + report
+│   │   │   ├── patients/
+│   │   │   │   ├── page.tsx            ← search
+│   │   │   │   └── [patientId]/
+│   │   │   │       └── page.tsx        ← patient history
+│   │   │   ├── reports/
+│   │   │   │   └── page.tsx            ← past reports
+│   │   │   └── profile/
+│   │   │       └── page.tsx
+│   │   └── admin/
+│   │       ├── page.tsx                ← admin home
+│   │       ├── users/
+│   │       │   └── page.tsx
+│   │       └── logs/
+│   │           └── page.tsx
+│   ├── layout.tsx                      ← root layout
+│   └── page.tsx                        ← redirect to /login
+├── components/
+│   ├── ui/                             ← reusable primitives
+│   ├── auth/
+│   ├── radiologist/
+│   ├── doctor/
+│   └── admin/
+├── hooks/
+├── lib/
+│   ├── api.ts                          ← axios/fetch client
+│   ├── auth.ts                         ← token management
+│   └── utils.ts
+├── middleware.ts                        ← route protection
+├── store/                              ← global state (Zustand/Context)
+└── types/
+    └── index.ts                        ← shared TypeScript types
+```
+
+---
+
+## 🔐 Phase 1 — Auth & Routing Foundation
+
+### 1.1 Middleware — Route Protection
+
+```
+src/middleware.ts
+```
+
+- [ ] Read JWT from cookie or `Authorization` header
+- [ ] If no valid token → redirect to `/login`
+- [ ] If token valid → decode role claim
+- [ ] Enforce role-based route access:
+  - `/radiologist/**` → only `Lab_Technician` or `Radiologist` role
+  - `/doctor/**` → only `Doctor` role
+  - `/admin/**` → only `Admin` role
+- [ ] On role mismatch → redirect to their correct dashboard
+- [ ] Handle token expiry → redirect to `/login` with `?expired=true`
+
+---
+
+### 1.2 Login Page — `app/(auth)/login/page.tsx`
+
+**Layout:** Centered card on a clean background
+
+- [ ] App logo + "AI Lung Disease Detection" title at top of card
+- [ ] Email input with inline validation (required, valid email format)
+- [ ] Password input with show/hide toggle
+- [ ] "Forgot Password?" link (route: `/forgot-password`)
+- [ ] "Sign In" primary button
+- [ ] Loading spinner replaces button text on submit — button disabled during request
+- [ ] On **success** → navigate to `/verify-otp`
+- [ ] On **invalid credentials** → inline error below password field, do NOT clear either field
+- [ ] On **account locked** → show locked message + link to password reset
+- [ ] On **3 failed attempts** → show remaining attempts warning
+- [ ] Language toggle (English / Amharic) in top-right corner of page
+
+**Accessibility:**
+- [ ] `aria-label` on all inputs
+- [ ] Error messages linked via `aria-describedby`
+- [ ] Full keyboard navigation (Tab order: email → password → forgot → submit)
+- [ ] Min color contrast 4.5:1 for all text
+
+---
+
+### 1.3 Two-Factor Auth Page — `app/(auth)/verify-otp/page.tsx`
+
+**Layout:** Same centered card style as login
+
+- [ ] Page title: "Verify Your Identity"
+- [ ] Subtitle: "A 6-digit code was sent to your email"
+- [ ] 6 individual single-digit input boxes (auto-advance on keystroke)
+- [ ] Paste support (auto-fill all 6 boxes from clipboard)
+- [ ] Countdown timer (5:00 → 0:00), styled in red when under 1 minute
+- [ ] "Resend Code" button — disabled and greyed during countdown, enabled when timer hits 0
+- [ ] "Verify" button
+- [ ] Auto-submit when all 6 digits entered
+- [ ] On **invalid OTP** → red border on all 6 boxes + error message, clear boxes, re-focus box 1
+- [ ] On **success** → redirect to role-appropriate dashboard
+- [ ] On **max OTP attempts (3)** → show "Please request a new code" message, disable verify button
+
+---
+
+### 1.4 Token Management — `lib/auth.ts`
+
+- [ ] Store access token in memory (not localStorage)
+- [ ] Store refresh token in HTTP-only cookie (handled by backend, just don't touch it client-side)
+- [ ] `getAccessToken()` — returns current token or null
+- [ ] `refreshAccessToken()` — calls refresh endpoint, updates in-memory token
+- [ ] `clearTokens()` — clears memory token (for logout)
+- [ ] Auto-refresh access token 60s before expiry using a background interval
+- [ ] On refresh failure → call logout flow → redirect to `/login`
+
+---
+
+### 1.5 API Client — `lib/api.ts`
+
+- [ ] Axios (or fetch wrapper) base instance with `baseURL` from env
+- [ ] Request interceptor: attach `Authorization: Bearer <token>` header
+- [ ] Response interceptor:
+  - On `401` → attempt token refresh → retry original request once
+  - On second `401` → logout + redirect
+  - On `403` → show "Access Denied" toast
+  - On `500` → show generic "Something went wrong" toast
+- [ ] All endpoints typed with TypeScript interfaces
+
+---
+
+### 1.6 Shared TypeScript Types — `types/index.ts`
+
+- [ ] `User` type: `{ user_id, email, name, role, hospital_id, status }`
+- [ ] `Role` enum: `Lab_Technician | Radiologist | Doctor | Admin`
+- [ ] `Case` type with all status values
+- [ ] `Patient` type
+- [ ] `Image` type
+- [ ] `Prediction` type: `{ disease_class, bounding_box: {x,y,w,h}, confidence_score }`
+- [ ] `InferenceResult` type
+- [ ] `RadiologistReview` type
+- [ ] `Diagnosis` type
+- [ ] `Report` type
+- [ ] `AuditLog` type
+
+---
+
+## 🏠 Phase 2 — Dashboard Shell
+
+### 2.1 Dashboard Layout — `app/(dashboard)/layout.tsx`
+
+- [ ] Persistent side navigation bar
+- [ ] Side nav renders different links based on role (read role from decoded JWT)
+- [ ] "Logout" button at bottom of side nav
+  - Calls logout API (invalidates session server-side)
+  - Clears in-memory token
+  - Redirects to `/login`
+- [ ] Top header bar with: user name + role badge, hospital name, language toggle
+- [ ] Red badge on nav items for: critical cases (Radiologist and Doctor dashboards)
+- [ ] Responsive: collapsible side nav on smaller screens
+
+**Radiologist nav items:**
+- [ ] Dashboard (home icon)
+- [ ] Upload X-ray
+- [ ] Cases Queue (with pending count badge)
+- [ ] Profile
+
+**Doctor nav items:**
+- [ ] Dashboard
+- [ ] Diagnosis Queue (with pending count badge)
+- [ ] Patients / Search
+- [ ] Past Reports
+- [ ] Profile
+
+**Admin nav items:**
+- [ ] Dashboard
+- [ ] User Management
+- [ ] Audit Logs
+
+---
+
+## 🔬 Phase 3 — Radiologist Pages
+
+### 3.1 Radiologist Dashboard — `app/(dashboard)/radiologist/page.tsx`
+
+- [ ] "Welcome, [name]" heading
+- [ ] Stats cards row:
+  - [ ] "Pending Review" count (orange)
+  - [ ] "Completed Today" count (green)
+  - [ ] "In Review" count (blue)
+- [ ] Recent cases table columns: Patient ID · Uploaded At · Status · Priority badge · "Review" button
+- [ ] Priority badge: red "Critical" / grey "Non-Critical"
+- [ ] "Upload New X-ray" primary CTA button (top right, links to `/radiologist/upload`)
+- [ ] Polling or auto-refresh for new cases (every 30s or on focus)
+
+---
+
+### 3.2 Upload X-ray Page — `app/(dashboard)/radiologist/upload/page.tsx`
+
+**Layout:** Two columns
+
+#### Left Column — Patient Information
+
+- [ ] **Tab 1: Existing Patient**
+  - [ ] Search input: "Search by Patient ID"
+  - [ ] Search results dropdown / list
+  - [ ] Click to select patient → show: Patient ID, Age, Sex, registered date
+  - [ ] "Confirm Patient" button
+
+- [ ] **Tab 2: New Patient**
+  - [ ] Patient ID input (unique — validated on blur against API)
+  - [ ] Age input (number, positive integer)
+  - [ ] Sex dropdown: Male / Female
+  - [ ] Visit Date picker (defaults to today)
+  - [ ] Consent checkbox: "I confirm patient consent has been obtained" — **required**, cannot proceed without it
+  - [ ] "Register Patient" button → POST to API → show success confirmation
+
+#### Right Column — Image Upload
+
+- [ ] Drag-and-drop zone with dashed border
+  - [ ] Text: "Drag & Drop X-ray image here or click to browse"
+  - [ ] Accepted formats listed: PNG, JPEG/JPG, DICOM (.dcm)
+  - [ ] Border highlights on drag-over
+  - [ ] File icon and filename shown after selection
+- [ ] Upload progress bar (0–100%) during upload
+- [ ] Validation error states:
+  - [ ] File size exceeded → "File exceeds maximum size limit"
+  - [ ] Wrong format → "Unsupported format. Please use PNG, JPEG, or DICOM"
+  - [ ] Corrupted file → "File appears corrupted. Please try another"
+- [ ] **Duplicate detection notification:**
+  - [ ] Yellow warning banner: "This image already exists in the system"
+  - [ ] "Proceed anyway" + "Cancel" buttons
+- [ ] "Upload & Analyze" submit button — disabled until: patient selected/registered + file selected + consent given
+- [ ] On upload success → redirect to case review page for the new case
+
+---
+
+### 3.3 Cases Queue — `app/(dashboard)/radiologist/cases/page.tsx`
+
+- [ ] Filterable table: Status filter (All / Pending / In Review / Ready), date range picker
+- [ ] Table columns: Case ID · Patient ID · Upload Date · Status · Priority · "Review" button
+- [ ] Pagination (25 per page)
+- [ ] Case rows with "Critical" priority highlighted in red
+- [ ] Empty state: "No cases found" illustration + message
+
+---
+
+### 3.4 Review AI Predictions Page — `app/(dashboard)/radiologist/cases/[caseId]/page.tsx`
+
+This is the most complex page in the radiologist flow.
+
+#### Layout: Split screen (60% / 40%)
+
+##### Left Panel — Image Viewer (60%)
+
+- [ ] High-resolution X-ray image rendered on a dark background canvas
+- [ ] Bounding boxes overlaid, color-coded:
+  - Pneumonia → **red**
+  - Tuberculosis → **yellow**
+  - Lung Tumor → **orange**
+- [ ] Zoom controls:
+  - [ ] Zoom In / Zoom Out buttons
+  - [ ] Mouse wheel zoom
+  - [ ] Reset zoom button
+  - [ ] Current zoom level indicator (e.g., "120%")
+- [ ] Pan: click-and-drag when zoomed in
+- [ ] Toggle buttons toolbar:
+  - [ ] "Show / Hide Annotations" toggle
+  - [ ] "Original / Annotated" view toggle
+  - [ ] "Show / Hide Scores" toggle (show confidence % label on each box)
+
+##### Right Panel — Predictions & Tools (40%)
+
+**Predictions List:**
+- [ ] Each detection item shows:
+  - Disease class icon (color-coded dot)
+  - Disease label (e.g., "Pneumonia")
+  - Confidence score as progress bar + "87.3%" text
+  - "Focus" button → scrolls/zooms image to center on that detection
+  - "Edit" button → opens inline edit mode for that detection
+  - "Remove" button → marks as false positive (greys out, not deleted)
+
+**Confidence Filter:**
+- [ ] Slider (0–100%), default 50%
+- [ ] Live updates displayed annotations as slider moves
+- [ ] Shows: "Showing X of Y detections"
+- [ ] "Reset to 50%" link
+
+**Annotation Toolbar (for editing):**
+- [ ] Toolbar icons: Select/Move · Rectangle Draw · Eraser · Text Note
+- [ ] **Select/Move mode:** click bounding box → show corner + edge handles for resize/move
+- [ ] **Rectangle Draw mode:** click-drag on image to draw a new bounding box
+- [ ] When new box drawn → show popup: disease class dropdown (Pneumonia / TB / Lung Tumor) + "Add" / "Cancel"
+- [ ] On edit existing detection → show side panel:
+  - [ ] Disease class dropdown (editable)
+  - [ ] Bounding box coordinates display (read-only, updates live as you drag handles)
+  - [ ] "Save Changes" / "Discard" buttons
+- [ ] "Remove All Detections" → confirmation dialog → mark case as "No abnormalities found"
+- [ ] "Revert to AI Predictions" button → confirmation dialog → reloads original inference_results
+
+**Radiologist Notes:**
+- [ ] Rich text editor (bold, italic, bullet lists)
+- [ ] Auto-save indicator ("Saved" / "Saving..." / "Unsaved changes")
+- [ ] Character counter
+
+**Action Buttons (bottom of right panel):**
+- [ ] "Save Progress" (saves without finalizing)
+- [ ] "Send to Doctor" primary button → confirms review complete → sets case status to "Ready_for_Diagnosis" → show success toast
+
+---
+
+## 🩺 Phase 4 — Doctor Pages
+
+### 4.1 Doctor Dashboard — `app/(dashboard)/doctor/page.tsx`
+
+- [ ] "Welcome, Dr. [name]" heading
+- [ ] Stats cards: Pending Diagnosis count (red) · Completed Today (green) · Total This Week (blue)
+- [ ] Pending cases table: Patient ID · Radiologist · Urgency · Date Ready · "Diagnose" button
+- [ ] Critical cases pinned to top with red highlight
+- [ ] "Quick Search" input to search by patient ID directly from dashboard
+
+---
+
+### 4.2 Diagnosis Queue — `app/(dashboard)/doctor/cases/page.tsx`
+
+- [ ] Filter: All / Pending / Draft / Diagnosed
+- [ ] Urgency filter: All / Critical / Non-Critical
+- [ ] Date range filter
+- [ ] Table with pagination (25/page)
+- [ ] "Critical" rows pinned to top + red row highlight
+
+---
+
+### 4.3 Diagnosis Page — `app/(dashboard)/doctor/cases/[caseId]/page.tsx`
+
+#### Layout: Three columns
+
+##### Left Column — Patient & History
+
+- [ ] Patient Info card: Patient ID · Age · Sex · Visit Date
+- [ ] Medical History timeline: previous cases in chronological order
+- [ ] "View Full Patient History" link → `/doctor/patients/[patientId]`
+- [ ] Consent status indicator
+
+##### Center Column — Image Viewer
+
+- [ ] Side-by-side: Original X-ray (left) and Annotated X-ray with radiologist edits (right)
+- [ ] Zoom controls for both panels (synchronized zoom option)
+- [ ] Toggle: "Show Original AI" vs "Show Radiologist Edits" on annotated panel
+- [ ] Read-only bounding boxes (doctor cannot edit annotations)
+
+##### Right Column — Analysis + Diagnosis Form
+
+**AI & Radiologist Analysis Panel (accordion):**
+- [ ] **"AI Model Findings"** section:
+  - List of all detections: class · confidence score · bounding box reference
+  - Model version used
+  - Processing time
+- [ ] **"Radiologist Review"** section:
+  - Radiologist name + timestamp
+  - Summary: boxes added/removed/modified
+  - Full radiologist notes (rich text, read-only)
+  - Confidence threshold that was applied
+
+**Diagnosis Form:**
+- [ ] Primary Diagnosis dropdown (required): Normal · Pneumonia · Tuberculosis · Lung Tumor · Other
+- [ ] Secondary Diagnosis dropdown (optional)
+- [ ] Urgency Level radio buttons:
+  - 🔴 Critical
+  - 🟢 Non-Critical
+  - Required — form cannot submit without selection
+- [ ] Doctor Notes rich text editor (required)
+- [ ] Treatment Recommendations textarea (optional)
+- [ ] Required fields marked with red asterisk `*`
+- [ ] "Submit Diagnosis" button disabled until all required fields complete
+- [ ] Validation warning if AI found critical finding but urgency set to Non-Critical → yellow warning banner
+
+**Action Buttons:**
+- [ ] "Save as Draft" → saves without finalizing, case stays in queue
+- [ ] "Submit Diagnosis" → confirmation modal showing diagnosis summary → confirm → POST to API → trigger report generation
+- [ ] "Generate Report" (after submission) → shows loading → notify when ready
+- [ ] "Request Additional Images" → flag case back to radiologist with comment
+- [ ] "Cancel"
+
+---
+
+### 4.4 Patient Search & History — `app/(dashboard)/doctor/patients/page.tsx`
+
+- [ ] Search bar with filters: Patient ID · Diagnosis Type · Date Range
+- [ ] "Apply Filters" button + "Clear All" link
+- [ ] Results table: Patient ID · Age · Sex · Cases Count · Last Visit · "View History" button
+- [ ] "No matching cases" empty state
+- [ ] Export results to CSV button
+
+---
+
+### 4.5 Patient Detail — `app/(dashboard)/doctor/patients/[patientId]/page.tsx`
+
+- [ ] Patient info header: ID · Age · Sex · Registration Date · Consent status
+- [ ] Timeline of all cases: Visit Date · Diagnosis · Urgency · Doctor · "View Case" button
+- [ ] "Register Follow-Up Visit" button → opens modal to link a new case
+
+---
+
+### 4.6 Past Reports — `app/(dashboard)/doctor/reports/page.tsx`
+
+- [ ] Filter: Date Range · Patient ID · Diagnosis Type
+- [ ] Table: Case ID · Patient ID · Diagnosis · Date · Urgency · "View" · "Download PDF" buttons
+- [ ] Pagination: 25 per page
+- [ ] "Export List to CSV" button
+- [ ] Empty state: "No historical cases found"
+
+**Report Detail Modal / Page:**
+- [ ] Original + annotated X-ray thumbnails
+- [ ] Full diagnosis info: primary diagnosis · urgency · notes · treatment · date
+- [ ] Radiologist annotations summary
+- [ ] AI findings summary
+- [ ] "Download PDF" button (re-triggers download of stored PDF)
+
+---
+
+### 4.7 Generate Report Flow
+
+> Triggered automatically on diagnosis submission, or manually via "Generate Report" button
+
+- [ ] Show loading state: "Generating report..." with spinner
+- [ ] Poll `/api/reports/[caseId]/status` every 2s until ready
+- [ ] On ready → show "Report Ready" success toast with "Download" button
+- [ ] On timeout (>18s) → show "Taking longer than expected — check back shortly"
+- [ ] PDF downloads via pre-signed URL from object storage
+
+---
+
+## 🛠️ Phase 5 — Admin Pages
+
+### 5.1 Admin Dashboard — `app/(dashboard)/admin/page.tsx`
+
+- [ ] System stats cards: Total Users · Active Users · Total Cases Today · Pending Reviews
+- [ ] Quick links: "Manage Users" · "View Audit Logs"
+- [ ] **NO patient data, diagnosis data, or report data anywhere on admin pages**
+- [ ] Recent admin actions summary (last 5 log entries)
+
+---
+
+### 5.2 User Management — `app/(dashboard)/admin/users/page.tsx`
+
+**User Table:**
+- [ ] Columns: Name · Email · Role · Hospital · Status · Last Login · Actions
+- [ ] Role badge with color coding
+- [ ] Status badge: Active (green) · Inactive (grey) · Locked (red)
+- [ ] Per-row actions: "Edit Role" · "Deactivate" · "Reset Password"
+- [ ] Search/filter: by name, email, role, status
+- [ ] Pagination (25/page)
+
+**Add New User modal/form:**
+- [ ] Name input
+- [ ] Email input (validated for uniqueness on blur)
+- [ ] Role dropdown: Lab_Technician · Radiologist · Doctor · Admin
+- [ ] Hospital assignment
+- [ ] "Create User" button → system generates temp password + sends welcome email
+- [ ] Duplicate email → inline error "Email already in use"
+
+**Deactivate User:**
+- [ ] Confirmation dialog: "Are you sure you want to deactivate [name]?"
+- [ ] Cannot deactivate own account → show "You cannot deactivate your own account"
+- [ ] Cannot deactivate last admin → show "You cannot deactivate the last admin account"
+
+**Reset Credentials:**
+- [ ] Confirmation dialog
+- [ ] On confirm → system sends password reset email to user
+- [ ] Show success toast
+
+**Edit Role:**
+- [ ] Dropdown to select new role
+- [ ] Show permissions diff (what changes with the new role)
+- [ ] "Promote to Admin" → require secondary admin confirmation (modal with "Approve" button requiring a second admin to confirm — or at minimum a secondary confirmation step)
+- [ ] On confirm → update role → send notification email to user → terminate active session
+
+---
+
+### 5.3 Audit Logs — `app/(dashboard)/admin/logs/page.tsx`
+
+- [ ] Filter panel: Action Type · User ID · Case ID · Date Range
+- [ ] "Apply Filters" + "Reset Filters" buttons
+- [ ] Logs table: Timestamp · User · Action Type · Case ID · IP Address · "Details"
+- [ ] "Details" → expand row or modal to show encrypted details (decrypted by backend before sending)
+- [ ] Pagination with large datasets
+- [ ] Action type color badges (login = blue, upload = green, diagnosis = purple, deletion = red, etc.)
+- [ ] Export to CSV
+
+---
+
+## 🧩 Phase 6 — Shared / Reusable Components
+
+### 6.1 Core UI Primitives — `components/ui/`
+
+- [ ] `Button` — variants: primary, secondary, danger, ghost; states: loading, disabled
+- [ ] `Input` — with label, error state, helper text, show/hide (for password)
+- [ ] `Select` / `Dropdown`
+- [ ] `Badge` — variants: success, warning, danger, info, neutral
+- [ ] `Modal` — with title, body, footer actions, close on backdrop click / Escape key
+- [ ] `Toast` / `Notification` — success, error, warning, info; auto-dismiss after 4s
+- [ ] `Spinner` / loading indicator
+- [ ] `Pagination` — prev/next + page numbers + "X of Y pages"
+- [ ] `Table` — sortable headers, loading skeleton, empty state slot
+- [ ] `Card` — with optional header and footer slots
+- [ ] `Tabs` — controlled and uncontrolled variants
+- [ ] `Accordion`
+- [ ] `Tooltip` — shown on hover with ARIA support
+- [ ] `ProgressBar`
+- [ ] `Slider` — for confidence threshold filter
+- [ ] `RichTextEditor` — bold, italic, bullet list, auto-save support
+- [ ] `DatePicker` with locale support
+- [ ] `ConfirmationDialog` — reusable destructive action dialog
+
+---
+
+### 6.2 Auth Components — `components/auth/`
+
+- [ ] `OtpInput` — 6-box individual digit input with auto-advance + paste
+- [ ] `PasswordInput` — with show/hide toggle
+- [ ] `LanguageToggle` — English / Amharic switcher (header + auth pages)
+
+---
+
+### 6.3 Image Viewer Component — `components/radiologist/ImageViewer.tsx`
+
+This is the core interactive component used on the review and diagnosis pages.
+
+- [ ] Props: `imageUrl`, `annotations`, `mode: 'edit' | 'view'`, `onAnnotationsChange`
+- [ ] Canvas-based rendering (HTML5 Canvas or SVG overlay on `<img>`)
+- [ ] Zoom: mouse wheel + buttons (min 25%, max 500%)
+- [ ] Pan: click-drag when zoomed in
+- [ ] Render bounding boxes with color per disease class
+- [ ] In `edit` mode:
+  - [ ] Click to select box → show resize handles
+  - [ ] Drag corners to resize
+  - [ ] Drag center to move
+  - [ ] Double-click to edit class label
+  - [ ] Click "delete" handle to remove
+  - [ ] Draw mode: click-drag to create new box
+- [ ] In `view` mode: read-only, no handles
+- [ ] Toggle: show/hide all overlays
+- [ ] Toggle: original image vs. annotated
+- [ ] Show confidence score labels on hover over each box
+
+---
+
+### 6.4 Confidence Slider Component — `components/radiologist/ConfidenceSlider.tsx`
+
+- [ ] Slider input 0–100%, default 50%
+- [ ] Live label: "Showing X of Y detections"
+- [ ] "Reset to default (50%)" link
+- [ ] Emits `onThresholdChange(value: number)` — parent filters predictions array
+
+---
+
+### 6.5 Patient Registration Form — `components/shared/PatientRegistrationForm.tsx`
+
+- [ ] Reusable across upload page and follow-up registration
+- [ ] Fields: Patient ID, Age, Sex, Visit Date, Consent checkbox
+- [ ] Patient ID uniqueness check (debounced API call on blur)
+- [ ] All required field validation
+- [ ] `onSuccess(patient: Patient)` callback
+
+---
+
+### 6.6 Case Status Badge — `components/shared/CaseStatusBadge.tsx`
+
+- [ ] Maps status strings to colored badges:
+  - `Pending_Review` → grey
+  - `In_Review` → blue
+  - `Ready_for_Diagnosis` → orange
+  - `Diagnosed` → green
+  - `Completed` → dark green
+
+---
+
+### 6.7 Language / i18n — `lib/i18n.ts`
+
+- [ ] Set up `next-intl` or `react-i18next`
+- [ ] Translation files: `en.json` and `am.json` (Amharic)
+- [ ] Minimum strings to translate: all UI labels, button text, error messages, nav items
+- [ ] Date/time formatted based on locale (Ethiopian format for Amharic, ISO for English)
+- [ ] Language preference persisted in localStorage or cookie
+
+---
+
+## 🔒 Phase 7 — Security & Data Handling
+
+- [ ] **No credentials, diagnosis text, or patient notes stored in localStorage or sessionStorage**
+- [ ] All API calls over HTTPS (enforced by backend, but never hardcode `http://` in frontend)
+- [ ] JWT access token stored only in memory (JavaScript variable / Zustand store)
+- [ ] Refresh token: HTTP-only cookie (do not try to read it client-side)
+- [ ] Sensitive form fields (password, OTP): `autocomplete="off"` where appropriate
+- [ ] CSRF protection: include CSRF token header on mutating requests if backend requires it
+- [ ] Pre-signed URLs for image/PDF downloads must expire in 15 min — do not cache URLs
+
+---
+
+## ♿ Phase 8 — Accessibility (WCAG 2.1 AA)
+
+- [ ] **Color contrast:** minimum 4.5:1 for all normal text, 3:1 for large text
+- [ ] **Keyboard navigation:** Tab order makes logical sense on every page; no focus traps (except modals)
+- [ ] **Modals:** focus moves to modal on open, returns to trigger on close; Escape closes modal
+- [ ] **All images and icons** have `alt` text or `aria-label`
+- [ ] **Bounding box annotations** have ARIA labels: `aria-label="Pneumonia detection, 87% confidence"`
+- [ ] **Diagnostic icons** labeled for screen readers
+- [ ] **Form inputs** all have associated `<label>` elements (not just placeholder)
+- [ ] **Error messages** linked to their inputs with `aria-describedby`
+- [ ] **Loading states** announced with `aria-live="polite"` regions
+- [ ] **Tables** use proper `<thead>`, `<th scope="col">` markup
+- [ ] **Buttons** never use `<div>` or `<span>` — always real `<button>` elements
+- [ ] **Language attribute** set on `<html lang="en">` (or `"am"` for Amharic)
+
+---
+
+## 📡 Phase 9 — State Management
+
+### Recommended: Zustand + React Query (TanStack Query)
+
+- [ ] **Zustand store** for:
+  - Current user (decoded from JWT): `{ user_id, name, role, email, hospital_id }`
+  - Current language preference
+  - Current annotation editing state (for image viewer)
+
+- [ ] **React Query** for all server state:
+  - `useCases(filters)` — cases list with caching + background refresh
+  - `useCase(caseId)` — individual case with predictions
+  - `usePatient(patientId)` — patient + case history
+  - `useInferenceResult(caseId)` — AI predictions
+  - `useAuditLogs(filters)` — admin logs
+  - `useUsers()` — admin user list
+  - Mutation hooks for: `useSubmitDiagnosis`, `useUploadImage`, `useSaveAnnotations`, etc.
+
+---
+
+## 🧪 Phase 10 — Error States & Edge Cases
+
+Every page must handle:
+
+- [ ] **Loading state** — skeleton loaders or spinners (not blank white screens)
+- [ ] **Error state** — "Something went wrong" with a retry button
+- [ ] **Empty state** — friendly message + illustration/icon (not just blank)
+- [ ] **Network offline** — banner: "You appear to be offline. Changes may not save."
+- [ ] **Session expired** — intercept 401 → redirect to login with `?expired=true` → show "Your session expired. Please log in again."
+- [ ] **403 Forbidden** — "You don't have permission to view this" page
+- [ ] **404 Not Found** — for invalid case IDs / patient IDs in URLs
+- [ ] **AI inference timeout** — "Analysis is taking longer than expected" state on upload page
+- [ ] **PDF generation timeout** (>18s) — "Report is still generating. Check back shortly."
+
+---
+
+## ✅ Phase 11 — Final Checklist Before Done
+
+### Functional Completeness
+
+- [ ] All 3 roles can log in, complete their full workflow, and log out
+- [ ] Radiologist: upload → validate → duplicate check → review AI → edit annotations → send to doctor
+- [ ] Doctor: view case → review radiologist edits → submit diagnosis → download PDF report
+- [ ] Admin: add user → deactivate user → reset password → change role → view audit logs
+- [ ] Patient registration form works for new patients
+- [ ] Follow-up case linking works (linked_case_id)
+- [ ] Patient search by ID / diagnosis type / date range works
+- [ ] Past reports page loads with filter + pagination
+- [ ] Confidence threshold slider filters bounding boxes live
+
+### Auth & Security
+
+- [ ] Protected routes redirect unauthenticated users to `/login`
+- [ ] Role mismatch redirects to correct dashboard
+- [ ] Expired session shows correct message
+- [ ] OTP timer counts down correctly
+- [ ] Logout clears session and redirects
+
+### UI Quality
+
+- [ ] No page renders a blank white screen (loading skeletons everywhere)
+- [ ] All error states handled with helpful messages
+- [ ] Toasts used for success/failure feedback on all mutations
+- [ ] Loading spinners on all async buttons (upload, submit, generate report)
+- [ ] All modals have close buttons + Escape key support
+- [ ] Mobile/tablet layout doesn't break (test at 768px and 1024px widths)
+
+### Accessibility
+
+- [ ] Run Lighthouse accessibility audit — score >= 90
+- [ ] Tab through each page manually — nothing gets stuck
+- [ ] Test with browser zoom at 150% and 200%
+
+### Localization
+
+- [ ] Language toggle switches all visible text (English ↔ Amharic)
+- [ ] Dates display in correct locale format
+- [ ] Amharic text renders correctly (Unicode font, proper character support)
+
+---
+
+## 🌐 Environment Variables
+
+```env
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_APP_NAME="Lung Disease Detection"
+NEXT_PUBLIC_DEFAULT_LANGUAGE=en
+```
+
+---
+
+## 📦 Key Dependencies to Install
+
+```bash
+npx create-next-app@latest . --typescript --tailwind --app
+
+npm install \
+  axios \
+  zustand \
+  @tanstack/react-query \
+  next-intl \
+  react-hook-form \
+  zod \
+  @hookform/resolvers \
+  date-fns \
+  lucide-react \
+  clsx \
+  tailwind-merge
+
+# Rich text editor
+npm install @tiptap/react @tiptap/starter-kit @tiptap/extension-bullet-list
+
+# For image annotation canvas
+npm install konva react-konva
+
+# For PDF preview in browser
+npm install react-pdf
+```
+
+---
+
+> **Note on Image Annotation:** The `ImageViewer` component using `react-konva` (Konva.js) is the most technically complex piece of the frontend. Build it in isolation first as a standalone component with mock data before integrating it into the review page.
+
+> **Build order recommendation:** Auth → Shell/Layout → Radiologist Upload → Radiologist Review (ImageViewer) → Doctor Diagnosis → Admin → Shared components cleanup → Accessibility pass → i18n pass

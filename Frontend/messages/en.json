@@ -1,0 +1,24 @@
+{
+    "Auth": {
+        "login_title": "Sign in to your account",
+        "login_subtitle": "Clinical Decision Support System",
+        "email_label": "Email Address",
+        "password_label": "Password",
+        "sign_in_button": "Sign In",
+        "forgot_password": "Forgot Password?",
+        "invalid_credentials": "Invalid email or password",
+        "account_locked": "Account is locked due to multiple failed attempts."
+    },
+    "Dashboard": {
+        "welcome": "Welcome back",
+        "overview": "System Overview",
+        "search_placeholder": "Search patient ID or case..."
+    },
+    "Common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "submit": "Submit",
+        "loading": "Loading...",
+        "error": "An error occurred."
+    }
+}

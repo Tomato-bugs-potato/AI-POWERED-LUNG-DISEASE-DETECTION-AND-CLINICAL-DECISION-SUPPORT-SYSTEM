@@ -1,0 +1,76 @@
+﻿app/(dashboard)/admin/logs/page.tsx(26,5): error TS2322: Type '{ id: string; timestamp: string; user_id: string; user_name: string; action: string; resource: string; ip_address: string; status: string; }[]' is not assignable to type 'AuditLog[]'.
+  Type '{ id: string; timestamp: string; user_id: string; user_name: string; action: string; resource: string; ip_address: string; status: string; }' is not assignable to type 'AuditLog'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type '"Success" | "Failure"'.
+app/(dashboard)/admin/users/page.tsx(20,10): error TS2305: Module '"@/types"' has no exported member 'UserRole'.
+app/(dashboard)/doctor/cases/[caseId]/page.tsx(148,29): error TS2322: Type '{ id: string; disease_class: string; bounding_box: { x: number; y: number; w: number; h: number; }; confidence_score: number; is_false_positive: boolean; }[]' is not assignable to type 'Prediction[]'.
+  Type '{ id: string; disease_class: string; bounding_box: { x: number; y: number; w: number; h: number; }; confidence_score: number; is_false_positive: boolean; }' is not assignable to type 'Prediction'.
+    Types of property 'disease_class' are incompatible.
+      Type 'string' is not assignable to type 'DiseaseClass'.
+app/(dashboard)/doctor/cases/page.tsx(22,5): error TS2322: Type '{ case_id: string; patient_id: string; status: CaseStatus; priority: string; upload_date: string; image: { image_id: string; file_url: string; upload_date: string; format: string; }; }[]' is not assignable to type 'Case[]'.
+  Type '{ case_id: string; patient_id: string; status: CaseStatus; priority: string; upload_date: string; image: { image_id: string; file_url: string; upload_date: string; format: string; }; }' is not assignable to type 'Case'.
+    Types of property 'priority' are incompatible.
+      Type 'string' is not assignable to type 'UrgencyLevel'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(28,9): error TS2322: Type '"M"' is not assignable to type 'PatientSex'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(49,17): error TS2322: Type '"Routine"' is not assignable to type 'UrgencyLevel'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(53,62): error TS2353: Object literal may only specify known properties, and 'case_id' does not exist in type 'Diagnosis'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(95,38): error TS2339: Property 'full_name' does not exist on type 'PatientDetailData'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(114,42): error TS2339: Property 'full_name' does not exist on type 'PatientDetailData'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(114,67): error TS7006: Parameter 'n' implicitly has an 'any' type.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(123,119): error TS2367: This comparison appears to be unintentional because the types 'PatientSex' and '"M"' have no overlap.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(129,108): error TS2339: Property 'contact_number' does not exist on type 'PatientDetailData'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(135,114): error TS2339: Property 'created_at' does not exist on type 'PatientDetailData'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(203,75): error TS2339: Property 'final_classification' does not exist on type 'Diagnosis'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(204,113): error TS2339: Property 'final_classification' does not exist on type 'Diagnosis'.
+app/(dashboard)/doctor/patients/[patientId]/page.tsx(205,82): error TS2339: Property 'final_classification' does not exist on type 'Diagnosis'.
+app/(dashboard)/doctor/patients/page.tsx(26,5): error TS2322: Type '{ patient_id: string; full_name: string; age: number; sex: string; contact_number: string; consent_given: boolean; created_at: string; last_visit_date: string; total_cases: number; active_cases: number; }[]' is not assignable to type 'PatientListItem[]'.
+  Type '{ patient_id: string; full_name: string; age: number; sex: string; contact_number: string; consent_given: boolean; created_at: string; last_visit_date: string; total_cases: number; active_cases: number; }' is not assignable to type 'PatientListItem'.
+    Types of property 'sex' are incompatible.
+      Type 'string' is not assignable to type 'PatientSex'.
+app/(dashboard)/doctor/patients/page.tsx(58,18): error TS2339: Property 'full_name' does not exist on type 'PatientListItem'.
+app/(dashboard)/doctor/patients/page.tsx(60,16): error TS2339: Property 'contact_number' does not exist on type 'PatientListItem'.
+app/(dashboard)/doctor/patients/page.tsx(60,36): error TS2339: Property 'contact_number' does not exist on type 'PatientListItem'.
+app/(dashboard)/doctor/patients/page.tsx(132,118): error TS2339: Property 'full_name' does not exist on type 'PatientListItem'.
+app/(dashboard)/doctor/patients/page.tsx(136,68): error TS2367: This comparison appears to be unintentional because the types 'PatientSex' and '"M"' have no overlap.
+app/(dashboard)/doctor/reports/page.tsx(31,5): error TS2322: Type '{ id: string; case_id: string; patient_id: string; patient_name: string; final_diagnosis: string; status: string; generated_at: string; }[]' is not assignable to type 'ReportMock[]'.
+  Type '{ id: string; case_id: string; patient_id: string; patient_name: string; final_diagnosis: string; status: string; generated_at: string; }' is not assignable to type 'ReportMock'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type '"Final" | "Draft"'.
+app/(dashboard)/radiologist/cases/page.tsx(30,5): error TS2322: Type '{ case_id: string; patient_id: string; status: CaseStatus; priority: string; upload_date: string; image: { image_id: string; file_url: string; upload_date: string; format: string; }; }[]' is not assignable to type 'Case[]'.
+  Type '{ case_id: string; patient_id: string; status: CaseStatus; priority: string; upload_date: string; image: { image_id: string; file_url: string; upload_date: string; format: string; }; }' is not assignable to type 'Case'.
+    Types of property 'priority' are incompatible.
+      Type 'string' is not assignable to type 'UrgencyLevel'.
+app/(dashboard)/radiologist/upload/page.tsx(109,26): error TS2345: Argument of type '{ patient_id: string; age: number; sex: string; consent_given: boolean; registration_date: string; }[]' is not assignable to parameter of type 'SetStateAction<Patient[]>'.
+  Type '{ patient_id: string; age: number; sex: string; consent_given: boolean; registration_date: string; }[]' is not assignable to type 'Patient[]'.
+    Type '{ patient_id: string; age: number; sex: string; consent_given: boolean; registration_date: string; }' is not assignable to type 'Patient'.
+      Types of property 'sex' are incompatible.
+        Type 'string' is not assignable to type 'PatientSex'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(9,44): error TS7031: Binding element 'signature' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(9,55): error TS7031: Binding element 'setSignature' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(13,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(16,25): error TS2339: Property 'getBoundingClientRect' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(17,24): error TS2339: Property 'getContext' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(23,26): error TS7006: Parameter 'e' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(27,25): error TS2339: Property 'getBoundingClientRect' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(28,24): error TS2339: Property 'getContext' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(37,23): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(39,33): error TS2339: Property 'toDataURL' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(49,26): error TS2339: Property 'getContext' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(50,34): error TS2339: Property 'width' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(50,48): error TS2339: Property 'height' does not exist on type 'never'.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(51,21): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(68,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(76,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/digital-signature.tsx(85,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/report-preview.tsx(3,41): error TS7031: Binding element 'caseData' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/report-preview.tsx(3,51): error TS7031: Binding element 'config' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/report-preview.tsx(3,59): error TS7031: Binding element 'signature' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/report-preview.tsx(65,39): error TS7006: Parameter 'finding' implicitly has an 'any' type.
+app/dashboard/doctor/report/[caseId]/components/report-preview.tsx(65,48): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+components/radiologist/ImageViewer.tsx(5,22): error TS2307: Cannot find module 'use-image' or its corresponding type declarations.
+components/shared/PatientRegistrationForm.tsx(176,77): error TS2345: Argument of type 'boolean' is not assignable to parameter of type 'true'.
+i18n.ts(6,33): error TS2345: Argument of type '({ locale }: GetRequestConfigParams) => Promise<{ messages: any; }>' is not assignable to parameter of type '(params: GetRequestConfigParams) => RequestConfig | Promise<RequestConfig>'.
+  Type 'Promise<{ messages: any; }>' is not assignable to type 'RequestConfig | Promise<RequestConfig>'.
+    Type 'Promise<{ messages: any; }>' is not assignable to type 'Promise<RequestConfig>'.
+      Type '{ messages: any; }' is not assignable to type 'RequestConfig'.
+        Property 'locale' is missing in type '{ messages: any; }' but required in type '{ locale: string; }'.

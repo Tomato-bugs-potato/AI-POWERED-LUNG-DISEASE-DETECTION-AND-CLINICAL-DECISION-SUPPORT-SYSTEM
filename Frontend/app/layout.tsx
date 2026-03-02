@@ -25,15 +25,21 @@ export const metadata: Metadata = {
   },
 }
 
+import { QueryProvider } from "@/components/providers/QueryProvider"
+import { Toaster } from "sonner"
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
-        {children}
+        <QueryProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </QueryProvider>
         <Analytics />
       </body>
     </html>
