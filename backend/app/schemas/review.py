@@ -7,6 +7,7 @@ class ReviewCreate(BaseModel):
     annotations: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
     confidence_threshold_applied: Optional[int] = None
+    priority: Optional[str] = None
 
 class ReviewResponse(BaseModel):
     review_id: uuid.UUID

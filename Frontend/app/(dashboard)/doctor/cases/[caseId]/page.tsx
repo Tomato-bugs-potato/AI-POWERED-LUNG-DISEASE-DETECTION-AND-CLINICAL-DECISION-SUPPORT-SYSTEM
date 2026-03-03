@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
 import { ImageViewer } from '@/components/radiologist/ImageViewer';
@@ -74,7 +73,7 @@ export default function DiagnosisPage() {
 
     const [finalDiagnosis, setFinalDiagnosis] = React.useState<string>('');
     const [doctorNotes, setDoctorNotes] = React.useState('');
-    const [urgency, setUrgency] = React.useState<string>('Routine');
+    const [urgency, setUrgency] = React.useState<string>('Non_Critical');
 
     const visibleAnnotations = React.useMemo(() => {
         if (!caseData?.radiologist_review?.edited_predictions) return [];
@@ -121,7 +120,7 @@ export default function DiagnosisPage() {
     if (!caseData) return <div>Failed to load case</div>;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)] -mt-4">
+        <div className="flex flex-col min-h-[calc(100vh-6rem)] -mt-4">
             {/* Header Bar */}
             <div className="flex items-center justify-between pb-4 shrink-0">
                 <div className="flex items-center gap-4">
@@ -149,10 +148,10 @@ export default function DiagnosisPage() {
             </div>
 
             {/* Main Split Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6">
 
                 {/* Left Panel: Image Viewer (60%) */}
-                <div className="lg:w-[60%] flex flex-col h-full bg-zinc-950 rounded-lg overflow-hidden border border-border">
+                <div className="lg:w-[60%] flex flex-col h-[60vh] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-4 bg-zinc-950 rounded-lg overflow-hidden border border-border">
                     <div className="h-12 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 text-sm shrink-0">
                         <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION (READ-ONLY)</span>
                         <span className="text-zinc-500 text-xs">Annotations provided by {caseData.radiologist_review.radiologist_name}</span>
@@ -170,8 +169,8 @@ export default function DiagnosisPage() {
                 </div>
 
                 {/* Right Panel: Tools and Data (40%) */}
-                <div className="lg:w-[40%] flex flex-col h-full overflow-hidden space-y-4">
-                    <ScrollArea className="flex-1 border rounded-lg bg-white dark:bg-zinc-900 overflow-y-auto">
+                <div className="lg:w-[40%] flex flex-col space-y-4">
+                    <div className="flex-1 border rounded-lg bg-white dark:bg-zinc-900 overflow-y-auto">
                         <div className="p-4 space-y-6">
 
                             {/* Patient Information */}
@@ -270,9 +269,9 @@ export default function DiagnosisPage() {
                                                     <SelectValue placeholder="Select urgency..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="Routine">Routine Care</SelectItem>
-                                                    <SelectItem value="Urgent">Urgent Review</SelectItem>
-                                                    <SelectItem value="Immediate">Immediate Protocol / Critical</SelectItem>
+                                                    <SelectItem value="Non_Critical">Routine Care</SelectItem>
+                                                    <SelectItem value="High">Urgent Review</SelectItem>
+                                                    <SelectItem value="Critical">Immediate Protocol / Critical</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -291,7 +290,7 @@ export default function DiagnosisPage() {
                             </div>
 
                         </div>
-                    </ScrollArea>
+                    </div>
                 </div>
             </div>
         </div>

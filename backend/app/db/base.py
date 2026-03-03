@@ -51,6 +51,7 @@ class CaseStatus(str, enum.Enum):
 
 class UrgencyLevel(str, enum.Enum):
     Critical = "Critical"
+    High = "High"
     Non_Critical = "Non_Critical"
 
 class ImageFormat(str, enum.Enum):

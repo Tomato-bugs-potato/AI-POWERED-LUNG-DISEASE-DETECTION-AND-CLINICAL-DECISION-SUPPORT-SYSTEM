@@ -57,6 +57,9 @@ async def create_or_update_review(
         )
         db.add(review)
         await log_action(db, AuditAction.REVIEW_SAVED, user_id=current_user.user_id, case_id=case_id)
+        
+    if review_in.priority:
+        case.priority = review_in.priority
 
     await db.commit()
     await db.refresh(review)

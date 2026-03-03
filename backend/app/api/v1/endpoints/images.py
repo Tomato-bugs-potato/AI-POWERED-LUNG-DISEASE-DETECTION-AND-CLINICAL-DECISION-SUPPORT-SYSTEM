@@ -13,7 +13,7 @@ from app.schemas.image import ImageUploadResponse
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.core.rbac import require_roles
-from app.db.base import Role, AuditAction, ImageFormat, CaseStatus
+from app.db.base import Role, AuditAction, ImageFormat, CaseStatus, UrgencyLevel
 from app.core.audit import log_action
 from app.services.storage import upload_file
 from app.config import settings
@@ -145,8 +145,17 @@ async def upload_image(
                 predictions=ai_data.get("predictions", [])
             )
             db.add(inference_record)
+            
+            # Auto-assign case priority based on findings
+            is_critical = any(
+                p.get("disease_class") == "Lung Tumor" and float(p.get("confidence_score", 0)) > 0.5 
+                for p in ai_data.get("predictions", [])
+            )
+            if is_critical:
+                case.priority = UrgencyLevel.Critical
+                
             await db.commit()
-            print(f"[UPLOAD] Inference result saved: {len(ai_data.get('predictions', []))} detections", flush=True)
+            print(f"[UPLOAD] Inference result saved: {len(ai_data.get('predictions', []))} detections. Critical: {is_critical}", flush=True)
         else:
             print(f"[UPLOAD] AI inference returned error: {ai_data}", flush=True)
             
