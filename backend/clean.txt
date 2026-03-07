@@ -1,0 +1,50 @@
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 427, in _url_open
+    raise response_error
+minio.error.S3Error: S3 operation failed; code: NoSuchBucket, message: The specified bucket does not exist, resource: /xray-images, request_id: 1898DBB7B13F4BCC, host_id: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8, bucket_name: xray-images
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/app/api/v1/endpoints/images.py", line 81, in upload_image
+    upload_file(settings.MINIO_BUCKET_IMAGES, object_name, file_bytes, file.content_type)
+  File "/app/app/services/storage.py", line 41, in upload_file
+    raise Exception(f"Upload to MinIO failed: {str(e)}")
+Exception: Upload to MinIO failed: S3 operation failed; code: NoSuchBucket, message: The specified bucket does not exist, resource: /xray-images, request_id: 1898DBB7B13F4BCC, host_id: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8, bucket_name: xray-images
+INFO:     172.19.0.1:60576 - "POST /api/v1/images/upload HTTP/1.1" 500 Internal Server Error
+INFO:     172.19.0.1:60576 - "POST /api/v1/cases/ HTTP/1.1" 200 OK
+[UPLOAD] Starting upload for case_id=53882f5d-ed54-4399-a537-29d40f6cd123, file=8.png, content_type=image/png
+[UPLOAD] Case found: 53882f5d-ed54-4399-a537-29d40f6cd123
+[UPLOAD] File read: 526589 bytes, format=PNG
+[UPLOAD] Hash check passed: 828242edd4749d91...
+[UPLOAD] Uploading to MinIO bucket=xray-images, object=53882f5d-ed54-4399-a537-29d40f6cd123/cac46081-e26b-407a-b125-471452e1dad6.png
+[UPLOAD] MinIO upload FAILED: Exception: Upload to MinIO failed: S3 operation failed; code: NoSuchBucket, message: The specified bucket does not exist, resource: /xray-images, request_id: 1898DBB899E4340C, host_id: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8, bucket_name: xray-images
+Traceback (most recent call last):
+  File "/app/app/services/storage.py", line 31, in upload_file
+    minio_client.put_object(
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 2015, in put_object
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 1960, in put_object
+    return self._put_object(
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 1789, in _put_object
+    response = self._execute(
+               ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 441, in _execute
+    region = self._get_region(bucket_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 498, in _get_region
+    response = self._url_open(
+               ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/minio/api.py", line 427, in _url_open
+    raise response_error
+minio.error.S3Error: S3 operation failed; code: NoSuchBucket, message: The specified bucket does not exist, resource: /xray-images, request_id: 1898DBB899E4340C, host_id: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8, bucket_name: xray-images
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/app/api/v1/endpoints/images.py", line 81, in upload_image
+    upload_file(settings.MINIO_BUCKET_IMAGES, object_name, file_bytes, file.content_type)
+  File "/app/app/services/storage.py", line 41, in upload_file
+    raise Exception(f"Upload to MinIO failed: {str(e)}")
+Exception: Upload to MinIO failed: S3 operation failed; code: NoSuchBucket, message: The specified bucket does not exist, resource: /xray-images, request_id: 1898DBB899E4340C, host_id: dd9025bab4ad464b049177c95eb6ebf374d3b3fd1af9251148b658df7ac2e3e8, bucket_name: xray-images
+INFO:     172.19.0.1:60576 - "POST /api/v1/images/upload HTTP/1.1" 500 Internal Server Error

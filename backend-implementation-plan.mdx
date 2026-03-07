@@ -1,0 +1,1314 @@
+# 🫁 Lung Disease Detection — Backend Implementation Plan
+
+> **Stack:** Python 3.11 · FastAPI · PostgreSQL · Redis · MinIO · Docker · PyTorch + YOLOx  
+> **Status key:** ☐ Not started · ⚙️ In progress · ✅ Done
+
+---
+
+## 📁 Project Structure
+
+```
+backend/
+├── app/
+│   ├── main.py                        ← FastAPI app entry point
+│   ├── config.py                      ← settings from env vars
+│   ├── dependencies.py                ← shared DI (get_db, get_current_user, etc.)
+│   │
+│   ├── api/
+│   │   ├── v1/
+│   │   │   ├── router.py              ← aggregates all routers
+│   │   │   ├── auth.py
+│   │   │   ├── users.py
+│   │   │   ├── patients.py
+│   │   │   ├── cases.py
+│   │   │   ├── images.py
+│   │   │   ├── inference.py
+│   │   │   ├── reviews.py
+│   │   │   ├── diagnoses.py
+│   │   │   ├── reports.py
+│   │   │   └── logs.py
+│   │
+│   ├── core/
+│   │   ├── security.py                ← JWT, password hashing, OTP
+│   │   ├── rbac.py                    ← role permission checks
+│   │   ├── encryption.py              ← AES-256-GCM field encryption
+│   │   └── audit.py                   ← audit log writer
+│   │
+│   ├── db/
+│   │   ├── base.py                    ← SQLAlchemy base + engine
+│   │   ├── session.py                 ← session factory
+│   │   └── migrations/                ← Alembic migrations
+│   │       └── versions/
+│   │
+│   ├── models/                        ← SQLAlchemy ORM models
+│   │   ├── hospital.py
+│   │   ├── user.py
+│   │   ├── patient.py
+│   │   ├── case.py
+│   │   ├── image.py
+│   │   ├── inference_result.py
+│   │   ├── radiologist_review.py
+│   │   ├── diagnosis.py
+│   │   ├── report.py
+│   │   ├── audit_log.py
+│   │   └── session.py
+│   │
+│   ├── schemas/                       ← Pydantic request/response models
+│   │   ├── auth.py
+│   │   ├── user.py
+│   │   ├── patient.py
+│   │   ├── case.py
+│   │   ├── image.py
+│   │   ├── inference.py
+│   │   ├── review.py
+│   │   ├── diagnosis.py
+│   │   ├── report.py
+│   │   └── log.py
+│   │
+│   ├── services/                      ← business logic layer
+│   │   ├── auth_service.py
+│   │   ├── user_service.py
+│   │   ├── patient_service.py
+│   │   ├── case_service.py
+│   │   ├── image_service.py
+│   │   ├── inference_service.py
+│   │   ├── review_service.py
+│   │   ├── diagnosis_service.py
+│   │   ├── report_service.py
+│   │   ├── storage_service.py         ← MinIO operations
+│   │   ├── email_service.py
+│   │   └── backup_service.py
+│   │
+│   └── workers/                       ← background / async tasks
+│       ├── celery_app.py              ← or Redis queue config
+│       ├── inference_worker.py
+│       ├── report_worker.py
+│       ├── email_worker.py
+│       └── backup_worker.py
+│
+├── ai_service/                        ← separate microservice
+│   ├── main.py                        ← FastAPI app (AI only)
+│   ├── model/
+│   │   ├── loader.py                  ← load YOLOx weights
+│   │   ├── preprocessor.py            ← CLAHE, resize, normalize
+│   │   ├── inference.py               ← forward pass + output parsing
+│   │   └── weights/                   ← YOLOx .pt model file
+│   ├── schemas.py
+│   └── config.py
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── conftest.py
+│
+├── alembic.ini
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── Dockerfile                         ← for main backend
+├── Dockerfile.ai                      ← for AI service
+├── .env.example
+├── requirements.txt
+└── requirements.ai.txt
+```
+
+---
+
+## ⚙️ Phase 1 — Project Setup & Configuration
+
+### 1.1 Environment & Dependencies
+
+```bash
+# Create virtual environment
+python3.11 -m venv venv && source venv/bin/activate
+
+pip install \
+  fastapi[standard]==0.115.0 \
+  uvicorn[standard] \
+  sqlalchemy[asyncio]==2.0.0 \
+  asyncpg \
+  alembic \
+  pydantic==2.0.0 \
+  pydantic-settings \
+  redis[asyncio] \
+  minio \
+  python-jose[cryptography] \
+  passlib[argon2] \
+  argon2-cffi \
+  python-multipart \
+  aiofiles \
+  celery[redis] \
+  httpx \
+  Pillow \
+  pydicom \
+  cryptography \
+  reportlab \
+  weasyprint \
+  sendgrid \
+  pytest \
+  pytest-asyncio \
+  httpx
+```
+
+```bash
+# AI service only
+pip install \
+  torch==2.1.0 torchvision==0.16.0 \
+  opencv-python-headless \
+  numpy \
+  fastapi[standard] \
+  uvicorn
+```
+
+---
+
+### 1.2 Config — `app/config.py`
+
+- [ ] Use `pydantic-settings` `BaseSettings` class — all values read from environment variables
+- [ ] **NEVER** hardcode secrets in source code
+- [ ] Settings to define:
+
+```python
+class Settings(BaseSettings):
+    # App
+    APP_NAME: str = "Lung Disease Detection API"
+    DEBUG: bool = False
+    API_V1_PREFIX: str = "/api/v1"
+
+    # Database
+    DATABASE_URL: str               # postgresql+asyncpg://user:pass@host/db
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+
+    # Redis
+    REDIS_URL: str                  # redis://localhost:6379/0
+
+    # JWT
+    JWT_SECRET_KEY: str             # min 32 chars, random
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # OTP
+    OTP_EXPIRE_MINUTES: int = 5
+    OTP_MAX_ATTEMPTS: int = 3
+
+    # Encryption (AES-256)
+    FIELD_ENCRYPTION_KEY: str       # 32-byte base64-encoded key
+
+    # MinIO / Object Storage
+    MINIO_ENDPOINT: str
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_BUCKET_IMAGES: str = "xray-images"
+    MINIO_BUCKET_REPORTS: str = "reports"
+    MINIO_SECURE: bool = True
+    PRESIGNED_URL_EXPIRE_SECONDS: int = 900  # 15 minutes
+
+    # AI Service
+    AI_SERVICE_URL: str             # internal URL of AI microservice
+    AI_INFERENCE_TIMEOUT_SECONDS: int = 12
+
+    # Email
+    SENDGRID_API_KEY: str
+    EMAIL_FROM: str
+
+    # Backup
+    BACKUP_BUCKET: str
+    BACKUP_RETENTION_DAYS: int = 180
+
+    class Config:
+        env_file = ".env"
+```
+
+---
+
+### 1.3 Docker Compose — `docker-compose.yml`
+
+- [ ] Services to define:
+  - `api` — main FastAPI backend (port 8000)
+  - `ai_service` — YOLOx inference service (port 8001, GPU-enabled)
+  - `postgres` — PostgreSQL 15 (port 5432)
+  - `redis` — Redis 7 (port 6379)
+  - `minio` — MinIO object storage (port 9000 API, 9001 console)
+  - `nginx` — load balancer / reverse proxy (port 80/443)
+  - `celery_worker` — background task worker
+  - `celery_beat` — scheduled tasks (backups)
+
+- [ ] All backend services in a private Docker network
+- [ ] Only `nginx` exposed to host
+- [ ] Health checks defined for all services
+- [ ] Volume mounts for: PostgreSQL data, MinIO data, model weights
+- [ ] Environment variables loaded from `.env` file
+
+---
+
+### 1.4 FastAPI App Entry Point — `app/main.py`
+
+- [ ] Create FastAPI app with title, version, docs URL
+- [ ] Include `api/v1/router.py`
+- [ ] Add CORS middleware — allow only your frontend origin(s)
+- [ ] Add request logging middleware (log method, path, status, duration)
+- [ ] Add global exception handlers:
+  - `RequestValidationError` → 422 with field-level detail
+  - `HTTPException` → pass through
+  - Unhandled `Exception` → 500, log full traceback, return generic message (never leak stack traces)
+- [ ] Startup event: verify DB connection, verify Redis connection, verify MinIO bucket existence
+- [ ] Shutdown event: close DB connection pool, close Redis pool
+
+---
+
+## 🗄️ Phase 2 — Database Layer
+
+### 2.1 SQLAlchemy Setup — `app/db/`
+
+- [ ] Async engine with `asyncpg` driver
+- [ ] Connection pool: `pool_size=20`, `max_overflow=10`
+- [ ] `AsyncSession` factory with `expire_on_commit=False`
+- [ ] `get_db()` dependency that yields a session and closes it after request
+
+---
+
+### 2.2 All 11 ORM Models — `app/models/`
+
+Implement every model exactly as specified. Key constraints listed per model:
+
+#### `Hospital` model
+- [ ] `hospital_id` — UUID PK, default `uuid4()`
+- [ ] `hospital_name` — String, unique, not null
+- [ ] `address`, `city`, `phone_number` — String, not null
+- [ ] `email` — String, unique, not null
+- [ ] `status` — Enum: `Active`, `Inactive`, default `Active`
+- [ ] `created_at`, `updated_at` — DateTime with timezone, server default now
+- [ ] Relationship: `users` (one-to-many)
+
+#### `User` model
+- [ ] `user_id` — UUID PK
+- [ ] `hospital_id` — UUID FK → hospitals
+- [ ] `email` — String, unique, not null
+- [ ] `password_hash` — String, not null (**never** store plaintext)
+- [ ] `name` — String, not null
+- [ ] `role` — Enum: `Lab_Technician`, `Radiologist`, `Doctor`, `Admin`
+- [ ] `status` — Enum: `Active`, `Inactive`, `Locked`, default `Active`
+- [ ] `created_at` — DateTime
+- [ ] `last_login` — DateTime, nullable
+- [ ] `phone_number` — String, nullable
+- [ ] Relationships: `cases`, `radiologist_reviews`, `diagnoses`, `reports`, `audit_logs`, `sessions`
+
+#### `Patient` model
+- [ ] `patient_id` — UUID PK
+- [ ] `age` — Integer, not null
+- [ ] `sex` — Enum: `Male`, `Female`, not null
+- [ ] `registered_at` — DateTime
+- [ ] `consent_recorded` — Boolean, default `False`
+- [ ] `consent_date` — DateTime, nullable
+- [ ] **NO full name, NO address** (data minimization — NFR-25)
+- [ ] Relationship: `cases` (one-to-many)
+
+#### `Case` model
+- [ ] `case_id` — UUID PK
+- [ ] `patient_id` — UUID FK → patients
+- [ ] `upload_tech_id` — UUID FK → users, nullable
+- [ ] `visit_date` — Date, not null
+- [ ] `status` — Enum: `Pending_Review`, `In_Review`, `Ready_for_Diagnosis`, `Diagnosed`, `Completed`, default `Pending_Review`
+- [ ] `created_at`, `updated_at` — DateTime
+- [ ] `linked_case_id` — UUID FK → cases (self-reference), nullable
+- [ ] `priority` — Enum: `Critical`, `Non_Critical`, nullable
+- [ ] Relationships: `images`, `radiologist_review`, `diagnosis`, `reports`, `audit_logs`
+
+#### `Image` model
+- [ ] `image_id` — UUID PK
+- [ ] `case_id` — UUID FK → cases
+- [ ] `file_url` — String, not null (URL in MinIO)
+- [ ] `file_hash` — String(64), unique (SHA-256 for duplicate detection)
+- [ ] `file_format` — Enum: `PNG`, `JPEG`, `DICOM`
+- [ ] `file_size_bytes` — Integer
+- [ ] `uploaded_at` — DateTime
+- [ ] `metadata` — JSONB (DICOM tags)
+- [ ] Relationship: `inference_results` (one-to-many)
+
+#### `InferenceResult` model
+- [ ] `inference_id` — UUID PK
+- [ ] `image_id` — UUID FK → images
+- [ ] `model_version` — String, not null
+- [ ] `processing_time_sec` — Float
+- [ ] `predictions` — JSONB (array of `{disease_class, bounding_box: {x,y,w,h}, confidence_score}`)
+- [ ] `created_at` — DateTime
+
+#### `RadiologistReview` model
+- [ ] `review_id` — UUID PK
+- [ ] `case_id` — UUID FK → cases, **unique** (one review per case)
+- [ ] `radiologist_id` — UUID FK → users
+- [ ] `reviewed_at` — DateTime
+- [ ] `annotations` — JSONB (edited bounding boxes)
+- [ ] `notes` — Text, nullable
+- [ ] `confidence_threshold_applied` — Integer 0–100, nullable
+- [ ] DB-level check: `radiologist_id` references user with `role = Radiologist`
+
+#### `Diagnosis` model
+- [ ] `diagnosis_id` — UUID PK
+- [ ] `case_id` — UUID FK → cases, **unique**
+- [ ] `doctor_id` — UUID FK → users
+- [ ] `primary_diagnosis` — Enum: `Normal`, `Pneumonia`, `Tuberculosis`, `Lung_Tumor`, `Other`
+- [ ] `diagnosis_notes` — Text, not null — **stored AES-256-GCM encrypted**
+- [ ] `urgency_level` — Enum: `Critical`, `Non_Critical`, not null
+- [ ] `treatment_recommendations` — Text, nullable — **stored AES-256-GCM encrypted**
+- [ ] `diagnosed_at` — DateTime
+- [ ] DB-level check: `doctor_id` references user with `role = Doctor`
+- [ ] **Row-Level Security (RLS):** Admin role CANNOT SELECT from this table
+
+#### `Report` model
+- [ ] `report_id` — UUID PK
+- [ ] `case_id` — UUID FK → cases
+- [ ] `pdf_url` — String (URL in MinIO)
+- [ ] `generated_at` — DateTime
+- [ ] `generated_by` — UUID FK → users (Doctor)
+- [ ] `file_size_bytes` — Integer
+- [ ] `cached` — Boolean
+
+#### `AuditLog` model
+- [ ] `log_id` — UUID PK
+- [ ] `user_id` — UUID FK → users, nullable
+- [ ] `action_type` — Enum (see all action types in Phase 4.5)
+- [ ] `case_id` — UUID FK → cases, nullable
+- [ ] `timestamp` — DateTime, not null, server default now
+- [ ] `ip_address` — String, nullable
+- [ ] `details` — JSONB, **stored AES-256-GCM encrypted**
+- [ ] **INSERT ONLY — never UPDATE or DELETE this table**
+
+#### `Session` model
+- [ ] `session_id` — UUID PK
+- [ ] `user_id` — UUID FK → users
+- [ ] `token_hash` — String (hashed refresh token)
+- [ ] `created_at`, `expires_at`, `last_accessed` — DateTime
+- [ ] Index on `expires_at` for efficient cleanup queries
+
+---
+
+### 2.3 Alembic Migrations
+
+- [ ] `alembic init alembic` and configure `alembic.ini` with async support
+- [ ] Configure `env.py` to use `AsyncEngine`
+- [ ] Initial migration: all 11 tables
+- [ ] Enable PostgreSQL Row-Level Security on `diagnoses` table:
+
+```sql
+-- In a migration file
+ALTER TABLE diagnoses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY diagnoses_no_admin
+ON diagnoses
+USING (
+  current_setting('app.current_user_role', true) != 'Admin'
+);
+```
+
+- [ ] Create indexes:
+  - `users(email)` — unique
+  - `images(file_hash)` — unique
+  - `cases(patient_id)` — B-tree
+  - `cases(status)` — B-tree
+  - `audit_logs(user_id, timestamp)` — composite
+  - `audit_logs(action_type)` — B-tree
+  - `inference_results(predictions)` — GIN (for JSONB queries)
+  - `sessions(expires_at)` — B-tree (for cleanup)
+
+---
+
+## 🔐 Phase 3 — Core Security Layer
+
+### 3.1 Password Hashing — `app/core/security.py`
+
+- [ ] Use `passlib` with `argon2` backend (work factor >= 12)
+- [ ] `hash_password(plain: str) -> str`
+- [ ] `verify_password(plain: str, hashed: str) -> bool`
+- [ ] Never log passwords, never return hashes in API responses
+
+---
+
+### 3.2 JWT Tokens — `app/core/security.py`
+
+- [ ] `create_access_token(user_id, role, email) -> str`
+  - Payload: `{ "sub": user_id, "role": role, "email": email, "iat": now, "exp": now + 15min }`
+  - Signed with `HS256` using `JWT_SECRET_KEY`
+- [ ] `create_refresh_token() -> str`
+  - Generate cryptographically random 64-byte token (`secrets.token_hex(64)`)
+  - Hash it (SHA-256) before storing in `sessions` table
+  - Return the raw token (sent to client as HTTP-only cookie)
+- [ ] `decode_access_token(token: str) -> dict`
+  - Verify signature, check expiry
+  - Raise `HTTPException(401)` if invalid or expired
+- [ ] `hash_token(token: str) -> str` — SHA-256 hash for storage
+
+---
+
+### 3.3 OTP — `app/core/security.py`
+
+- [ ] `generate_otp() -> str` — 6-digit zero-padded random integer
+- [ ] `hash_otp(otp: str) -> str` — SHA-256 hash
+- [ ] Store in Redis: key = `otp:{user_id}`, value = hashed OTP, TTL = 5 minutes
+- [ ] Also store attempt counter: key = `otp_attempts:{user_id}`, TTL = 5 minutes
+- [ ] `verify_otp(user_id, otp) -> bool`:
+  - Increment attempt counter
+  - If attempts > 3 → raise `HTTPException(429, "Max attempts exceeded")`
+  - Compare hash(otp) with stored hash
+  - On success → delete both Redis keys
+
+---
+
+### 3.4 AES-256-GCM Field Encryption — `app/core/encryption.py`
+
+- [ ] `encrypt_field(plaintext: str) -> str`
+  - Generate random 12-byte nonce
+  - Encrypt with AES-256-GCM using `FIELD_ENCRYPTION_KEY`
+  - Return base64-encoded `nonce + ciphertext + tag`
+- [ ] `decrypt_field(ciphertext: str) -> str`
+  - Decode base64
+  - Extract nonce (first 12 bytes), tag (last 16 bytes), ciphertext (middle)
+  - Decrypt and return plaintext
+- [ ] Apply to: `diagnosis_notes`, `treatment_recommendations`, `audit_log.details`
+- [ ] **Use SQLAlchemy TypeDecorator** to auto-encrypt/decrypt on read/write
+
+```python
+class EncryptedText(TypeDecorator):
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return encrypt_field(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return decrypt_field(value)
+        return value
+```
+
+---
+
+### 3.5 RBAC — `app/core/rbac.py`
+
+- [ ] Role enum matching DB: `Lab_Technician`, `Radiologist`, `Doctor`, `Admin`
+- [ ] Dependency factory: `require_roles(*roles)` → returns a FastAPI dependency
+
+```python
+def require_roles(*allowed_roles: Role):
+    async def check(current_user = Depends(get_current_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(403, "Insufficient permissions")
+        return current_user
+    return check
+```
+
+- [ ] Role-specific dependencies:
+  - `require_radiologist` = `require_roles(Role.Lab_Technician, Role.Radiologist)`
+  - `require_doctor` = `require_roles(Role.Doctor)`
+  - `require_admin` = `require_roles(Role.Admin)`
+  - `require_authenticated` = `require_roles(*Role)` (any role)
+- [ ] Set PostgreSQL session variable before any DB query to enforce RLS:
+
+```python
+await session.execute(
+    text("SET LOCAL app.current_user_role = :role"),
+    {"role": current_user.role.value}
+)
+```
+
+---
+
+### 3.6 Audit Logger — `app/core/audit.py`
+
+- [ ] `AuditAction` enum — all possible action types:
+  - `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `LOGOUT`
+  - `OTP_SENT`, `OTP_VERIFIED`, `OTP_FAILED`
+  - `USER_CREATED`, `USER_DEACTIVATED`, `USER_ROLE_CHANGED`, `PASSWORD_RESET`
+  - `IMAGE_UPLOADED`, `IMAGE_DUPLICATE_DETECTED`
+  - `AI_INFERENCE_COMPLETED`, `AI_INFERENCE_FAILED`
+  - `REVIEW_SAVED`, `ANNOTATION_EDITED`, `REVIEW_SENT_TO_DOCTOR`
+  - `DIAGNOSIS_SUBMITTED`, `DIAGNOSIS_DRAFT_SAVED`
+  - `REPORT_GENERATED`, `REPORT_DOWNLOADED`
+  - `PATIENT_REGISTERED`
+  - `CASE_CREATED`, `CASE_STATUS_CHANGED`, `CASE_LINKED`
+  - `DATA_DELETION_REQUESTED`
+  - `ADMIN_LOG_VIEWED`
+
+- [ ] `log_action(db, user_id, action, case_id=None, ip=None, details=None)`
+  - Creates `AuditLog` record
+  - `details` dict is JSON-serialized then encrypted before storage
+  - **Never raises an exception** — wrap in try/except (logging must not break app flow)
+  - Use a background task to avoid blocking the request
+
+---
+
+### 3.7 `get_current_user` Dependency — `app/dependencies.py`
+
+- [ ] Extract token from `Authorization: Bearer <token>` header
+- [ ] Decode and validate JWT
+- [ ] Look up user in DB by `user_id` from token
+- [ ] Check user `status` is `Active` (not Inactive or Locked)
+- [ ] Set PostgreSQL RLS session variable for this user's role
+- [ ] Return `User` ORM object
+- [ ] Cache user lookup in Redis for 60s to reduce DB hits
+
+---
+
+## 🌐 Phase 4 — API Endpoints
+
+All endpoints return JSON. All except `/auth/login` and `/auth/verify-otp` require `Authorization: Bearer` header.
+
+---
+
+### 4.1 Auth Routes — `app/api/v1/auth.py`
+
+#### `POST /api/v1/auth/login`
+- [ ] Body: `{ email, password }`
+- [ ] Look up user by email
+- [ ] Verify password with Argon2
+- [ ] Check user status:
+  - `Inactive` → 403 "Account deactivated"
+  - `Locked` → 403 "Account locked — contact admin"
+- [ ] Track login failures in Redis: `login_attempts:{email}`
+  - 3 attempts → 1 min lockout
+  - 5 attempts → 15 min lockout
+  - 10 attempts → lock account in DB + audit log
+- [ ] On success:
+  - Generate OTP, hash and store in Redis (5 min TTL)
+  - Send OTP via email (background task)
+  - Audit log: `LOGIN_SUCCESS`
+  - Return: `{ message: "OTP sent to email" }` — do NOT return tokens yet
+- [ ] On failure: audit log `LOGIN_FAILURE`, return generic "Invalid credentials"
+
+#### `POST /api/v1/auth/verify-otp`
+- [ ] Body: `{ user_id, otp }`
+- [ ] Verify OTP (check hash, check attempts, check TTL)
+- [ ] On success:
+  - Create access token (15 min)
+  - Create refresh token → hash and store in `sessions` table
+  - Set refresh token as HTTP-only cookie (`Secure`, `SameSite=Strict`)
+  - Update `user.last_login`
+  - Audit log: `OTP_VERIFIED`
+  - Return: `{ access_token, token_type: "bearer", user: { id, name, role, email } }`
+- [ ] On failure: audit log `OTP_FAILED`, return 401
+
+#### `POST /api/v1/auth/refresh`
+- [ ] Read refresh token from HTTP-only cookie
+- [ ] Hash it and look up in `sessions` table
+- [ ] Check `expires_at` not passed
+- [ ] Verify associated user is still `Active`
+- [ ] Issue new access token
+- [ ] Rotate refresh token (delete old session, create new one)
+- [ ] Return: `{ access_token }`
+
+#### `POST /api/v1/auth/logout`
+- [ ] Requires: valid access token
+- [ ] Delete session record from `sessions` table (by token hash from cookie)
+- [ ] Clear Redis cache for user
+- [ ] Clear refresh token cookie (set empty cookie with past expiry)
+- [ ] Audit log: `LOGOUT`
+- [ ] Return: `{ message: "Logged out" }`
+
+#### `POST /api/v1/auth/resend-otp`
+- [ ] Body: `{ user_id }` (or derive from temp token)
+- [ ] Rate limit: max 3 resends per 10 minutes
+- [ ] Generate new OTP → delete old one from Redis → store new one
+- [ ] Send email (background task)
+- [ ] Return: `{ message: "New OTP sent" }`
+
+#### `POST /api/v1/auth/forgot-password`
+- [ ] Body: `{ email }`
+- [ ] Always return same response whether email exists or not (prevent enumeration)
+- [ ] If email exists: generate reset token → store hash in Redis (30 min TTL) → send email
+
+#### `POST /api/v1/auth/reset-password`
+- [ ] Body: `{ token, new_password }`
+- [ ] Validate token from Redis
+- [ ] Enforce password complexity: min 12 chars, uppercase, lowercase, digit, special char
+- [ ] Hash new password → update user record
+- [ ] Invalidate all active sessions for user
+- [ ] Return: `{ message: "Password updated" }`
+
+---
+
+### 4.2 User Routes — `app/api/v1/users.py`
+
+#### `GET /api/v1/users` — Admin only
+- [ ] Query params: `role`, `status`, `search` (name/email), `page`, `page_size` (default 25)
+- [ ] Returns paginated list of users (excluding `password_hash`)
+
+#### `POST /api/v1/users` — Admin only
+- [ ] Body: `{ name, email, role, hospital_id }`
+- [ ] Check email uniqueness
+- [ ] Generate temporary password (random 16 chars meeting complexity)
+- [ ] Hash it with Argon2
+- [ ] Create user with `status = Active`
+- [ ] Send welcome email with temp password (background task)
+- [ ] Audit log: `USER_CREATED`
+- [ ] Return: created user (no password)
+
+#### `PATCH /api/v1/users/{user_id}/role` — Admin only
+- [ ] Body: `{ role }`
+- [ ] Special rule: promoting to `Admin` requires a second admin confirmation header or step
+- [ ] Update role in DB
+- [ ] Invalidate all active sessions for that user (force re-login)
+- [ ] Send notification email to user
+- [ ] Audit log: `USER_ROLE_CHANGED`
+
+#### `PATCH /api/v1/users/{user_id}/deactivate` — Admin only
+- [ ] Cannot deactivate own account
+- [ ] Cannot deactivate last Admin
+- [ ] Set `status = Inactive`
+- [ ] Invalidate all active sessions for user
+- [ ] Audit log: `USER_DEACTIVATED`
+
+#### `POST /api/v1/users/{user_id}/reset-password` — Admin only
+- [ ] Generate temp password → hash → update DB
+- [ ] Send reset email (background task)
+- [ ] Invalidate sessions
+- [ ] Audit log: `PASSWORD_RESET`
+
+#### `GET /api/v1/users/me` — Any authenticated user
+- [ ] Returns current user's profile (no password)
+
+#### `PATCH /api/v1/users/me` — Any authenticated user
+- [ ] Allow update: `name`, `phone_number` only
+
+---
+
+### 4.3 Patient Routes — `app/api/v1/patients.py`
+
+#### `POST /api/v1/patients` — Radiologist or Doctor
+- [ ] Body: `{ patient_id, age, sex, visit_date, consent_recorded }`
+- [ ] Validate `patient_id` is unique
+- [ ] `consent_recorded` must be `true` — reject with 400 if false
+- [ ] Store `consent_date = now()` if `consent_recorded = true`
+- [ ] Encrypt patient data at rest (via SQLAlchemy TypeDecorator if applicable)
+- [ ] Audit log: `PATIENT_REGISTERED`
+- [ ] Return: created patient
+
+#### `GET /api/v1/patients/{patient_id}` — Radiologist or Doctor
+- [ ] Returns patient info + list of case IDs
+
+#### `GET /api/v1/patients/search` — Doctor
+- [ ] Query params: `patient_id`, `diagnosis_type`, `date_from`, `date_to`, `page`, `page_size`
+- [ ] Returns paginated case history matching filters
+
+#### `DELETE /api/v1/patients/{patient_id}` — Doctor or Admin (Right to Erasure)
+- [ ] Soft-delete patient and linked cases
+- [ ] Remove images from MinIO
+- [ ] Audit log: `DATA_DELETION_REQUESTED`
+
+---
+
+### 4.4 Case Routes — `app/api/v1/cases.py`
+
+#### `POST /api/v1/cases` — Radiologist
+- [ ] Body: `{ patient_id, visit_date, linked_case_id? }`
+- [ ] Create case with `status = Pending_Review`
+- [ ] Audit log: `CASE_CREATED`
+
+#### `GET /api/v1/cases` — Radiologist or Doctor
+- [ ] Radiologist sees: `Pending_Review`, `In_Review` cases
+- [ ] Doctor sees: `Ready_for_Diagnosis` cases
+- [ ] Query params: `status`, `priority`, `date_from`, `date_to`, `page`, `page_size`
+- [ ] Returns paginated case list with patient info + last image thumbnail URL
+
+#### `GET /api/v1/cases/{case_id}` — Radiologist or Doctor (role-appropriate data)
+- [ ] Returns: case metadata + patient info + image list + inference results + review (if exists) + diagnosis (Doctor only)
+
+#### `PATCH /api/v1/cases/{case_id}/status` — Internal (service-to-service)
+- [ ] Updates case status
+- [ ] Validates status transitions (cannot skip steps)
+- [ ] Audit log: `CASE_STATUS_CHANGED`
+
+---
+
+### 4.5 Image Routes — `app/api/v1/images.py`
+
+#### `POST /api/v1/images/upload` — Radiologist
+- [ ] Accepts `multipart/form-data`: `file` + `case_id`
+- [ ] **Validation pipeline (fail fast):**
+  - [ ] File extension check: `.png`, `.jpg`, `.jpeg`, `.dcm` only
+  - [ ] MIME type check (don't trust extension alone)
+  - [ ] File size check (enforce configured max)
+  - [ ] Pixel resolution check (minimum and maximum bounds)
+  - [ ] DICOM header validation for `.dcm` files (using `pydicom`)
+  - [ ] Reject with 400 + specific error message on any failure
+- [ ] Compute SHA-256 hash of file content
+- [ ] Check hash against existing `images.file_hash`:
+  - If duplicate → return 409 with `{ duplicate: true, existing_case_id }` (client handles override flow)
+- [ ] Upload file to MinIO bucket (`xray-images`) with AES-256 server-side encryption
+- [ ] Save `Image` record to DB
+- [ ] Audit log: `IMAGE_UPLOADED`
+- [ ] Enqueue AI inference job to background queue
+- [ ] Return: `{ image_id, case_id, status: "queued_for_inference" }`
+
+#### `GET /api/v1/images/{image_id}` — Radiologist or Doctor
+- [ ] Returns image metadata
+- [ ] Generates a 15-minute pre-signed MinIO URL for the actual file
+- [ ] Returns both original and annotated image URLs (if annotation exists)
+
+---
+
+### 4.6 Inference Routes — `app/api/v1/inference.py`
+
+#### `GET /api/v1/inference/{case_id}` — Radiologist or Doctor
+- [ ] Returns latest inference result for a case including all predictions JSONB
+
+#### `GET /api/v1/inference/{case_id}/status` — Radiologist
+- [ ] Returns: `{ status: "queued" | "processing" | "completed" | "failed" }`
+- [ ] Used by frontend to poll until inference is ready
+
+#### `POST /api/v1/inference/{case_id}/retry` — Radiologist or Admin
+- [ ] Manually re-queues a failed inference job
+- [ ] Only allowed if current status is `failed`
+
+---
+
+### 4.7 Review Routes — `app/api/v1/reviews.py`
+
+#### `GET /api/v1/reviews/{case_id}` — Radiologist or Doctor
+- [ ] Returns radiologist review with annotations JSONB
+
+#### `POST /api/v1/reviews/{case_id}` — Radiologist
+- [ ] Body: `{ annotations, notes, confidence_threshold_applied }`
+- [ ] One review per case (unique constraint) — update if exists, create if not
+- [ ] Validate: radiologist's role must be `Radiologist` or `Lab_Technician`
+- [ ] Save annotations JSONB
+- [ ] Audit log: `REVIEW_SAVED`
+
+#### `POST /api/v1/reviews/{case_id}/send-to-doctor` — Radiologist
+- [ ] Updates case status to `Ready_for_Diagnosis`
+- [ ] Audit log: `REVIEW_SENT_TO_DOCTOR`
+- [ ] (Optional) Send notification to assigned doctor
+
+---
+
+### 4.8 Diagnosis Routes — `app/api/v1/diagnoses.py`
+
+> **All endpoints require `Doctor` role. Admin MUST be blocked at both route decorator and DB/RLS level.**
+
+#### `POST /api/v1/diagnoses/{case_id}` — Doctor only
+- [ ] Body: `{ primary_diagnosis, diagnosis_notes, urgency_level, treatment_recommendations? }`
+- [ ] Validate case status is `Ready_for_Diagnosis`
+- [ ] Validate `doctor_id` from token is a Doctor role
+- [ ] Encrypt `diagnosis_notes` and `treatment_recommendations` with AES-256-GCM
+- [ ] Save diagnosis record
+- [ ] Update case status to `Diagnosed`
+- [ ] Enqueue report generation (background task)
+- [ ] Audit log: `DIAGNOSIS_SUBMITTED`
+- [ ] Return: `{ diagnosis_id, report_status: "generating" }`
+
+#### `POST /api/v1/diagnoses/{case_id}/draft` — Doctor only
+- [ ] Saves partial diagnosis without finalizing (case stays `Ready_for_Diagnosis`)
+- [ ] Audit log: `DIAGNOSIS_DRAFT_SAVED`
+
+#### `GET /api/v1/diagnoses/{case_id}` — Doctor only
+- [ ] Returns decrypted diagnosis (decrypt in service layer before returning)
+- [ ] **Route decorator must block Admin role with 403**
+- [ ] PostgreSQL RLS provides second layer of protection
+
+---
+
+### 4.9 Report Routes — `app/api/v1/reports.py`
+
+#### `GET /api/v1/reports/{case_id}` — Doctor
+- [ ] Returns report metadata + 15-min pre-signed PDF download URL
+
+#### `GET /api/v1/reports/{case_id}/status` — Doctor
+- [ ] Returns: `{ status: "generating" | "ready" | "failed", report_id? }`
+- [ ] Used by frontend to poll after diagnosis submission
+
+#### `GET /api/v1/reports` — Doctor
+- [ ] Query params: `patient_id`, `diagnosis_type`, `date_from`, `date_to`, `page`, `page_size`
+- [ ] Returns paginated list of all reports this doctor has generated
+- [ ] Audit log: `REPORT_DOWNLOADED` (on each download)
+
+#### `POST /api/v1/reports/{case_id}/regenerate` — Doctor
+- [ ] Deletes cached report → re-enqueues report generation
+- [ ] Used if report failed or needs refreshing
+
+---
+
+### 4.10 Audit Log Routes — `app/api/v1/logs.py`
+
+#### `GET /api/v1/logs` — Admin only
+- [ ] Query params: `action_type`, `user_id`, `case_id`, `date_from`, `date_to`, `page`, `page_size`
+- [ ] Returns paginated audit logs with decrypted `details`
+- [ ] Audit log: `ADMIN_LOG_VIEWED`
+
+---
+
+## 🤖 Phase 5 — AI Inference Service
+
+> This is a **separate microservice** (`ai_service/`). Runs in its own Docker container with GPU access.
+
+### 5.1 AI Service FastAPI App — `ai_service/main.py`
+
+- [ ] Separate FastAPI app (not the main backend)
+- [ ] Single endpoint: `POST /predict`
+- [ ] Auth: internal API key (`X-Internal-API-Key` header) — only main backend can call it
+- [ ] Load YOLOx model on startup (not per-request)
+- [ ] Return predictions within ≤ 12 seconds or return 504 timeout
+
+---
+
+### 5.2 Image Preprocessor — `ai_service/model/preprocessor.py`
+
+- [ ] `preprocess(image_bytes: bytes, file_format: str) -> np.ndarray`
+  - [ ] For DICOM: use `pydicom` to extract pixel array, convert to 8-bit grayscale
+  - [ ] For PNG/JPEG: decode with OpenCV or Pillow
+  - [ ] Convert to RGB (3 channels, even for grayscale X-rays)
+  - [ ] **Apply CLAHE** (Contrast Limited Adaptive Histogram Equalization):
+    ```python
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    img_clahe = clahe.apply(gray_channel)
+    ```
+  - [ ] Resize to `640 × 640` pixels (YOLOx input size)
+  - [ ] Normalize pixel values: divide by 255.0 → range [0.0, 1.0]
+  - [ ] Convert to tensor with shape `[1, 3, 640, 640]`
+
+---
+
+### 5.3 YOLOx Inference Engine — `ai_service/model/inference.py`
+
+- [ ] Load model weights once at startup:
+  ```python
+  # Load YOLOx model
+  model = get_exp(exp_file, exp_name).get_model()
+  model.load_state_dict(torch.load(weights_path, map_location=device))
+  model.eval()
+  ```
+- [ ] `run_inference(tensor) -> list[Prediction]`
+  - Run forward pass: `with torch.no_grad(): outputs = model(tensor)`
+  - Apply NMS (Non-Maximum Suppression) to filter overlapping boxes
+  - Map class indices to disease names:
+    - Class 0 → `Pneumonia`
+    - Class 1 → `Tuberculosis`
+    - Class 2 → `Lung_Tumor`
+  - Convert bounding boxes from `[x_center, y_center, w, h]` (normalized) to `[x, y, w, h]` pixel coordinates (relative to 640×640)
+  - Filter predictions with confidence < 0.1 (raw threshold — UI slider handles display filtering)
+  - Return list of `{ disease_class, bounding_box: {x, y, w, h}, confidence_score }`
+- [ ] Record `processing_time_sec` from start of preprocessing to end of inference
+- [ ] Handle GPU out-of-memory: catch `torch.cuda.OutOfMemoryError` → retry on CPU → log warning
+
+---
+
+### 5.4 AI Service Endpoint — `ai_service/main.py`
+
+```python
+@app.post("/predict")
+async def predict(request: PredictRequest):
+    # request: { image_url, image_format, inference_id }
+    # 1. Fetch image bytes from MinIO (via signed URL)
+    # 2. Preprocess
+    # 3. Run inference
+    # 4. Return { inference_id, predictions, processing_time_sec, model_version }
+```
+
+- [ ] Validate `X-Internal-API-Key` header
+- [ ] Download image from MinIO using presigned URL
+- [ ] Run full preprocessor → inference pipeline
+- [ ] Return structured prediction response
+- [ ] On any error: return `{ error: true, message }` — do NOT raise 500 to crash the worker
+
+---
+
+### 5.5 Inference Worker — `app/workers/inference_worker.py`
+
+- [ ] Triggered by: main backend after image upload (enqueued to Redis/Celery)
+- [ ] `process_inference_job(image_id: str)`
+  - Fetch image record from DB
+  - Fetch file from MinIO as bytes
+  - Call AI service: `POST http://ai_service:8001/predict`
+  - On success:
+    - Save `InferenceResult` to DB
+    - Update case status to `In_Review`
+    - Audit log: `AI_INFERENCE_COMPLETED`
+  - On failure (first attempt): retry once automatically
+  - On second failure: set case status to `inference_failed`, audit log: `AI_INFERENCE_FAILED`, notify admin via audit log
+- [ ] Entire pipeline (enqueue to result saved) must complete in ≤ 12 seconds on GPU
+
+---
+
+## 📄 Phase 6 — Report Generation Service
+
+### 6.1 Report Worker — `app/workers/report_worker.py`
+
+- [ ] Triggered by: diagnosis submission (background task / Celery)
+- [ ] `generate_report(case_id: str, doctor_id: str)`
+  - [ ] Fetch all required data in parallel:
+    - Case metadata
+    - Patient info
+    - Original X-ray image bytes from MinIO
+    - Annotated image bytes (with bounding boxes rendered — see 6.2)
+    - Inference results (AI predictions)
+    - Radiologist review (annotations + notes)
+    - Diagnosis (decrypted diagnosis_notes, urgency, treatment_recommendations)
+  - [ ] Compile into PDF (see 6.3)
+  - [ ] Upload PDF to MinIO `reports` bucket (AES-256 encrypted)
+  - [ ] Save `Report` record to DB: `{ case_id, pdf_url, generated_by, cached: False }`
+  - [ ] Cache report URL in Redis: key = `report:{case_id}`, TTL = 1 hour
+  - [ ] Audit log: `REPORT_GENERATED`
+- [ ] Total time target: ≤ 18 seconds for uncached generation
+
+---
+
+### 6.2 Annotated Image Renderer — `app/services/report_service.py`
+
+- [ ] `render_annotated_image(image_bytes, annotations) -> bytes`
+  - Load image with Pillow
+  - Draw bounding boxes on image:
+    - Pneumonia → red rectangle
+    - Tuberculosis → yellow rectangle
+    - Lung Tumor → orange rectangle
+  - Add label text above each box: `"Pneumonia 87.3%"`
+  - Return PNG bytes
+- [ ] Used for embedding annotated image in PDF report
+
+---
+
+### 6.3 PDF Generation — `app/services/report_service.py`
+
+Using ReportLab or WeasyPrint, generate a PDF containing:
+
+- [ ] **Header:** Hospital name, report generation date, report ID
+- [ ] **Patient Info section:** Patient ID · Age · Sex · Visit Date · Consent status
+- [ ] **Case Info:** Case ID · Urgency Level (highlighted in red if Critical)
+- [ ] **Original Radiograph:** embedded image
+- [ ] **Annotated Image:** embedded image with bounding boxes
+- [ ] **AI Model Findings table:** Disease class · Confidence · Location (bounding box)
+- [ ] **Model Version** used
+- [ ] **Radiologist Review section:** Radiologist name · Review timestamp · Notes text · Summary of edits
+- [ ] **Final Diagnosis section:** Primary diagnosis · Urgency · Doctor name · Timestamp
+- [ ] **Doctor Notes:** full text (decrypted)
+- [ ] **Treatment Recommendations:** full text (decrypted)
+- [ ] **Footer:** page numbers, disclaimer text
+- [ ] PDF must be deterministic for caching (same inputs → same PDF bytes)
+
+---
+
+### 6.4 Report Caching
+
+- [ ] On `GET /reports/{case_id}`: check Redis key `report:{case_id}`
+  - If hit → return `cached: true` in response, retrieve URL from Redis
+  - If miss → generate or return existing from DB
+- [ ] Cache invalidated when: case is updated (new upload), diagnosis edited
+- [ ] `cached` boolean stored in `reports` table for performance tracking (NFR-3)
+
+---
+
+## 📬 Phase 7 — Email Service
+
+### 7.1 Email Service — `app/services/email_service.py`
+
+All emails sent as **background tasks** (never block the API request).
+
+- [ ] `send_otp_email(to_email, otp_code)` — Subject: "Your verification code"
+- [ ] `send_welcome_email(to_email, name, temp_password)` — Subject: "Welcome to Lung Disease Detection System"
+- [ ] `send_password_reset_email(to_email, reset_link)` — Subject: "Password Reset Request"
+- [ ] `send_role_change_notification(to_email, new_role)` — Subject: "Your role has been updated"
+- [ ] All emails sent over TLS-encrypted SMTP (STARTTLS)
+- [ ] Use SendGrid SDK or `aiosmtplib` for async sending
+- [ ] On email failure: log the error, do NOT propagate to the user (email failure is non-fatal)
+- [ ] Fallback SMTP server configured for redundancy
+
+---
+
+## 🗃️ Phase 8 — Storage Service (MinIO)
+
+### 8.1 Storage Service — `app/services/storage_service.py`
+
+- [ ] Initialize MinIO client from config
+- [ ] `upload_file(bucket, object_name, data: bytes, content_type) -> str`
+  - Upload with server-side AES-256 encryption
+  - Return object URL
+- [ ] `get_presigned_url(bucket, object_name, expires=900) -> str`
+  - Generate pre-signed download URL valid for 15 minutes
+  - Used for serving X-ray images and PDF reports
+- [ ] `delete_file(bucket, object_name)` — for right-to-erasure workflow
+- [ ] `file_exists(bucket, object_name) -> bool`
+- [ ] Bucket initialization on startup (create if not exists, with versioning enabled)
+- [ ] **Never** return raw MinIO URLs — always use pre-signed URLs with expiry
+
+---
+
+## ⏰ Phase 9 — Background Jobs & Scheduled Tasks
+
+### 9.1 Celery Setup — `app/workers/celery_app.py`
+
+- [ ] Celery app with Redis as broker and result backend
+- [ ] Task queues:
+  - `inference` — AI inference jobs (high priority)
+  - `reports` — PDF generation jobs (medium priority)
+  - `emails` — email sending (low priority)
+  - `backups` — scheduled backup jobs
+
+### 9.2 Scheduled Tasks — `app/workers/backup_worker.py`
+
+Using Celery Beat for scheduling:
+
+- [ ] **Daily backup (2 AM):** `pg_dump` → compress → encrypt with AES-256 → upload to backup MinIO bucket (cross-region)
+- [ ] **Weekly full backup (Sunday 2 AM):** full database dump + MinIO data snapshot
+- [ ] **Session cleanup (hourly):** delete expired rows from `sessions` table where `expires_at < now()`
+- [ ] **OTP cleanup:** Redis TTL handles this automatically
+- [ ] Backup verification: after each backup, attempt to list backup file in storage (confirm upload succeeded)
+- [ ] Retain backups for 180 days (delete older)
+- [ ] Alert on backup failure (log + email admin)
+
+---
+
+## 🏥 Phase 10 — Health Checks & Monitoring
+
+### 10.1 Health Check Endpoints
+
+#### `GET /health` — Public (no auth required)
+- [ ] Returns: `{ status: "ok", timestamp }`
+- [ ] Used by Kubernetes `livenessProbe`
+
+#### `GET /health/ready` — Public
+- [ ] Check: DB connection responsive, Redis responsive, MinIO accessible
+- [ ] Returns 200 if all OK, 503 if any fail
+- [ ] Used by Kubernetes `readinessProbe`
+
+#### `GET /health/detailed` — Admin only
+- [ ] Returns: DB pool stats, Redis memory usage, MinIO bucket sizes, AI service status, worker queue depths
+
+---
+
+### 10.2 Metrics — Prometheus
+
+- [ ] Install `prometheus-fastapi-instrumentator`
+- [ ] Expose `/metrics` endpoint
+- [ ] Custom metrics to track:
+  - `inference_duration_seconds` — histogram of AI pipeline time
+  - `report_generation_seconds` — histogram
+  - `active_sessions_total` — gauge
+  - `failed_inference_jobs_total` — counter
+  - `login_failures_total` — counter
+
+---
+
+### 10.3 Structured Logging
+
+- [ ] Use `structlog` or standard `logging` with JSON formatter
+- [ ] Every log entry includes: `timestamp`, `level`, `service`, `request_id`, `user_id` (if authenticated)
+- [ ] Log levels:
+  - `INFO`: every request (method, path, status, duration)
+  - `WARNING`: failed login attempts, duplicate uploads, slow queries (>1s)
+  - `ERROR`: exceptions, failed background jobs
+- [ ] Never log: passwords, tokens, OTP codes, decrypted diagnosis text
+- [ ] Logs forwarded to ELK Stack (Logstash → Elasticsearch → Kibana)
+
+---
+
+## 🧪 Phase 11 — Testing
+
+### 11.1 Unit Tests — `tests/unit/`
+
+- [ ] `test_security.py`:
+  - Password hashing round-trip
+  - JWT encode → decode
+  - OTP generation + verification + expiry
+  - AES-256 encrypt → decrypt round-trip
+- [ ] `test_rbac.py`:
+  - Each role can access its allowed endpoints
+  - Each role is blocked from forbidden endpoints (returns 403)
+  - Admin blocked from `/diagnoses` endpoint
+- [ ] `test_image_validation.py`:
+  - Valid PNG accepted
+  - Valid DICOM accepted
+  - Invalid file type rejected
+  - Oversized file rejected
+  - Duplicate hash detected
+- [ ] `test_preprocessor.py` (AI service):
+  - CLAHE applied correctly
+  - Output tensor shape is `[1, 3, 640, 640]`
+  - Pixel values normalized to [0, 1]
+
+---
+
+### 11.2 Integration Tests — `tests/integration/`
+
+- [ ] `test_auth_flow.py`:
+  - Full login → OTP → token flow
+  - Token refresh
+  - Logout invalidates session
+  - Locked account cannot login
+- [ ] `test_upload_flow.py`:
+  - Upload image → validation → hash check → MinIO storage → inference enqueue
+  - Duplicate upload returns 409
+- [ ] `test_diagnosis_flow.py`:
+  - Submit diagnosis → case status updated → report enqueued
+  - Admin cannot GET `/diagnoses/{case_id}` → 403
+- [ ] `test_audit_log.py`:
+  - Every critical action creates an audit log entry
+  - Audit log entries cannot be updated or deleted
+
+---
+
+### 11.3 Test Configuration — `tests/conftest.py`
+
+- [ ] Test database: separate PostgreSQL DB or use `pytest-asyncio` with transaction rollback per test
+- [ ] Mock MinIO (or use MinIO test container)
+- [ ] Mock Redis with `fakeredis`
+- [ ] Mock email service (capture sent emails without actually sending)
+- [ ] Mock AI service (return fixture predictions without running GPU inference)
+- [ ] Factory functions for creating test users, patients, cases
+
+---
+
+## 🔒 Phase 12 — Security Hardening
+
+- [ ] **Input validation:** All request bodies validated by Pydantic schemas — never pass raw user input to DB queries
+- [ ] **SQL injection:** Use SQLAlchemy ORM or parameterized queries only — never `text()` with f-strings
+- [ ] **Rate limiting:** Install `slowapi` (FastAPI rate limiter):
+  - `POST /auth/login` → 10 requests/minute per IP
+  - `POST /auth/verify-otp` → 5 requests/minute per user
+  - `POST /auth/resend-otp` → 3 requests/10 minutes per user
+  - `POST /images/upload` → 20 uploads/minute per user
+- [ ] **CORS:** Whitelist only frontend origin — never `allow_origins=["*"]` in production
+- [ ] **Security headers** (via middleware):
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+  - `Content-Security-Policy: default-src 'self'`
+- [ ] **Dependency injection:** Never instantiate services inside routes — use FastAPI `Depends()`
+- [ ] **Secrets:** All secrets in environment variables, loaded via `pydantic-settings` — never in code or committed to git
+- [ ] **`.gitignore`:** Ensure `.env`, `*.key`, `weights/*.pt` (model files), `venv/` are all gitignored
+
+---
+
+## 🚀 Phase 13 — Deployment & DevOps
+
+### 13.1 Nginx Config
+
+- [ ] HTTPS only — redirect HTTP → HTTPS
+- [ ] SSL certificate from Let's Encrypt (auto-renew with Certbot)
+- [ ] Proxy pass to FastAPI instances: `proxy_pass http://api_upstream`
+- [ ] Upstream block with 3–5 FastAPI server instances (round-robin)
+- [ ] Rate limiting at Nginx level (additional layer before app)
+- [ ] Gzip compression for JSON responses
+- [ ] Serve static files if needed (not applicable here, frontend on Vercel/Netlify)
+
+### 13.2 Kubernetes Config (Production)
+
+- [ ] `Deployment` for main API (3 replicas, auto-scale on CPU > 70%)
+- [ ] `Deployment` for AI service (1 replica, GPU node selector, scale based on queue depth)
+- [ ] `Deployment` for Celery workers
+- [ ] `StatefulSet` for PostgreSQL (or use managed cloud DB)
+- [ ] `StatefulSet` for Redis
+- [ ] `livenessProbe` → `GET /health`
+- [ ] `readinessProbe` → `GET /health/ready`
+- [ ] `ConfigMap` for non-sensitive config
+- [ ] `Secret` for all sensitive env vars (never in ConfigMap)
+- [ ] Resource limits set on all containers (prevent OOM crashes taking down node)
+
+### 13.3 CI/CD Pipeline
+
+- [ ] GitHub Actions (or equivalent) triggers on `push` to `main`
+- [ ] Pipeline stages:
+  1. `lint` — `ruff` or `flake8` + `mypy` type checking
+  2. `test` — `pytest` full suite with coverage report
+  3. `build` — Docker image build
+  4. `push` — push image to container registry
+  5. `deploy` — apply Kubernetes manifests (blue-green deployment for AI service)
+- [ ] Model weight updates use blue-green deployment:
+  - Deploy new AI service container alongside old
+  - Gradually shift traffic from old → new model
+  - Rollback if error rate increases
+
+---
+
+## ✅ Phase 14 — Final Backend Checklist
+
+### Correctness
+- [ ] All 27 functional requirements (FR-01 to FR-27) have corresponding API endpoints or service logic
+- [ ] All 11 database tables created with correct columns, constraints, and indexes
+- [ ] AES-256 encryption applied on `diagnosis_notes`, `treatment_recommendations`, `audit_log.details`
+- [ ] Admin blocked from diagnoses at route level (403) AND database level (RLS)
+- [ ] Audit log written for every action listed in Phase 3.6
+- [ ] AI inference pipeline completes in ≤ 12 seconds on GPU
+- [ ] PDF report generated in ≤ 18 seconds
+- [ ] Report cached in Redis for ≤ 10 second retrieval
+
+### Security
+- [ ] No plaintext passwords, tokens, or diagnosis text anywhere in DB or logs
+- [ ] JWT secret key is a random 32+ char string from environment only
+- [ ] All MinIO file access via pre-signed URLs with 15-min expiry
+- [ ] Refresh tokens stored as hashed values only
+- [ ] Rate limiting on all auth endpoints
+- [ ] CORS restricted to frontend origin only
+
+### Reliability
+- [ ] Inference retry once on failure → admin queue on second failure
+- [ ] Kubernetes auto-restarts unhealthy containers
+- [ ] Daily + weekly backups running via Celery Beat
+- [ ] Health check endpoints responding correctly
+- [ ] Session cleanup job running hourly
+- [ ] All background tasks wrapped in try/except (never crash the worker)
+
+### Observability
+- [ ] Prometheus metrics exposed at `/metrics`
+- [ ] Structured JSON logs for every request
+- [ ] Grafana dashboards for inference latency, error rates, active sessions
+- [ ] Alerts configured for: inference failures, backup failures, high error rates
+
+---
+
+## 🌐 Environment Variables Reference
+
+```env
+# .env (never commit this file)
+
+# App
+APP_NAME="Lung Disease Detection API"
+DEBUG=false
+
+# Database
+DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/lungdb
+DB_POOL_SIZE=20
+DB_MAX_OVERFLOW=10
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+
+# JWT
+JWT_SECRET_KEY=<random_64_char_string>
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=30
+
+# OTP
+OTP_EXPIRE_MINUTES=5
+OTP_MAX_ATTEMPTS=3
+
+# Field Encryption (AES-256)
+FIELD_ENCRYPTION_KEY=<base64_encoded_32_byte_key>
+
+# MinIO
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=<access_key>
+MINIO_SECRET_KEY=<secret_key>
+MINIO_BUCKET_IMAGES=xray-images
+MINIO_BUCKET_REPORTS=reports
+MINIO_SECURE=false  # true in production (HTTPS MinIO)
+PRESIGNED_URL_EXPIRE_SECONDS=900
+
+# AI Service
+AI_SERVICE_URL=http://ai_service:8001
+AI_INFERENCE_TIMEOUT_SECONDS=12
+AI_INTERNAL_API_KEY=<random_secret>
+
+# Email
+SENDGRID_API_KEY=<key>
+EMAIL_FROM=noreply@yourdomain.com
+
+# Backup
+BACKUP_BUCKET=db-backups
+BACKUP_RETENTION_DAYS=180
+```
+
+---
+
+> **Build order recommendation:**  
+> Config + DB models + migrations → Core security (hashing, JWT, OTP, encryption, RBAC, audit) → Auth endpoints → User + Patient + Case endpoints → Image upload + validation → AI inference worker → Review + Diagnosis endpoints → Report generation → Email service → Health checks + metrics → Tests → Docker + deployment

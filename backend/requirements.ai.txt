@@ -1,0 +1,17 @@
+torch==2.1.0
+torchvision==0.16.0
+opencv-python-headless
+numpy<2
+fastapi[standard]
+uvicorn
+torchtnt==0.2.0
+distinctipy
+cjm_pandas_utils
+cjm_psl_utils
+cjm_pil_utils
+cjm_pytorch_utils
+cjm_yolox_pytorch
+cjm_torchvision_tfms
+minio
+python-dotenv
+pydicom

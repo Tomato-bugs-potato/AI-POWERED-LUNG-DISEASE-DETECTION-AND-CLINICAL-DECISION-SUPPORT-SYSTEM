@@ -1,0 +1,151 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - lung_network
+
+  ai_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: lung_ai_service
+    restart: always
+    expose:
+      - "8001"
+    env_file:
+      - .env
+    volumes:
+      - ./ai_service:/app/ai_service
+    depends_on:
+      minio:
+        condition: service_healthy
+    # Uncomment deploy block on GPU enabled hosts
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - lung_network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lung_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: lungdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d lungdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lung_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lung_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lung_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: lung_minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lung_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_celery_worker
+    restart: always
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      - redis
+      - postgres
+      - minio
+    networks:
+      - lung_network
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_celery_beat
+    restart: always
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - lung_network
+
+networks:
+  lung_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

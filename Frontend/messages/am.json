@@ -1,0 +1,24 @@
+{
+    "Auth": {
+        "login_title": "ወደ መለያዎ ይግቡ",
+        "login_subtitle": "ክሊኒካዊ የውሳኔ ድጋፍ ስርዓት",
+        "email_label": "የኢሜይል አድራሻ",
+        "password_label": "የይለፍ ቃል",
+        "sign_in_button": "ይግቡ",
+        "forgot_password": "የይለፍ ቃል ረሱ?",
+        "invalid_credentials": "የተሳሳተ ኢሜይል ወይም የይለፍ ቃል",
+        "account_locked": "በተደጋጋሚ በተሳሳተ ሙከራ ምክንያት መለያ ታግዷል።"
+    },
+    "Dashboard": {
+        "welcome": "እንኳን ደህና መጡ",
+        "overview": "የስርዓት አጠቃላይ እይታ",
+        "search_placeholder": "የታካሚ መለያ ይፈልጉ..."
+    },
+    "Common": {
+        "save": "አስቀምጥ",
+        "cancel": "ሰርዝ",
+        "submit": "አስገባ",
+        "loading": "በመጫን ላይ...",
+        "error": "ስህተት ተከስቷል።"
+    }
+}

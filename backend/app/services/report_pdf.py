@@ -1,0 +1,145 @@
+import io
+import datetime
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from weasyprint import HTML
+import base64
+
+def generate_pdf_report(
+    case_data: dict, 
+    patient_data: dict, 
+    original_img_bytes: bytes,
+    annotated_img_bytes: bytes,
+    ai_results: dict,
+    review_data: dict,
+    diagnosis_data: dict,
+    hospital_data: dict
+) -> bytes:
+    """
+    Generates a PDF using Jinja2 HTML templating and WeasyPrint according to spec 6.3.
+    """
+    # 1. Base64 encode images for embedding in HTML
+    orig_b64 = base64.b64encode(original_img_bytes).decode('utf-8')
+    anno_b64 = base64.b64encode(annotated_img_bytes).decode('utf-8')
+    
+    # 2. Setup Jinja template context
+    # Create an inline generic template string for now to avoid needing separate files
+    template_str = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; line-height: 1.5; }
+            h1, h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .section { margin-bottom: 25px; }
+            .grid { display: flex; flex-wrap: wrap; margin: -10px; }
+            .col { flex: 1; padding: 10px; min-width: 200px; }
+            .images { display: flex; gap: 20px; margin-top: 20px; }
+            .img-container { flex: 1; text-align: center; }
+            img { max-width: 100%; height: auto; border: 1px solid #ccc; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f8f9fa; }
+            .critical { color: #dc3545; font-weight: bold; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #7f8c8d; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>{{ hospital.name }}</h1>
+            <p><strong>Clinical Diagnostic Report</strong></p>
+            <p>Date: {{ generated_at }} | Report ID: {{ report_id }}</p>
+        </div>
+
+        <div class="section">
+            <h2>Patient Information</h2>
+            <p><strong>ID:</strong> {{ patient.id }} &nbsp;|&nbsp; 
+               <strong>Age:</strong> {{ patient.age }} &nbsp;|&nbsp; 
+               <strong>Sex:</strong> {{ patient.sex }}</p>
+            <p><strong>Visit Date:</strong> {{ case.visit_date }} &nbsp;|&nbsp; 
+               <strong>Consent:</strong> {% if patient.consent %}Recorded{% else %}Not Recorded{% endif %}</p>
+        </div>
+
+        <div class="section">
+            <h2>Case Details</h2>
+            <p><strong>Case ID:</strong> {{ case.id }}</p>
+            <p><strong>Urgency:</strong> <span class="{% if diagnosis.urgency == 'Critical' %}critical{% endif %}">{{ diagnosis.urgency }}</span></p>
+        </div>
+
+        <div class="section images">
+            <div class="img-container">
+                <h3>Original Radiograph</h3>
+                <img src="data:image/png;base64,{{ orig_img }}" alt="Original">
+            </div>
+            <div class="img-container">
+                <h3>AI Findings</h3>
+                <img src="data:image/png;base64,{{ anno_img }}" alt="Annotated">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>AI Model Findings (v{{ ai.model_version }})</h2>
+            <table>
+                <tr>
+                    <th>Disease Class</th>
+                    <th>Confidence</th>
+                    <th>Location (x, y, w, h)</th>
+                </tr>
+                {% for pred in ai.predictions %}
+                <tr>
+                    <td>{{ pred.disease_class }}</td>
+                    <td>{{ "%.1f"|format(pred.confidence_score * 100) }}%</td>
+                    <td>({{ pred.bounding_box.x }}, {{ pred.bounding_box.y }}, {{ pred.bounding_box.w }}, {{ pred.bounding_box.h }})</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3">No findings reported by AI.</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Radiologist Review</h2>
+            <p><strong>Reviewed By:</strong> {{ review.radiologist_name }}</p>
+            <p><strong>Notes:</strong> {{ review.notes or 'None' }}</p>
+        </div>
+
+        <div class="section">
+            <h2>Final Diagnosis</h2>
+            <p><strong>Diagnosed By:</strong> Dr. {{ diagnosis.doctor_name }}</p>
+            <p><strong>Primary Diagnosis:</strong> {{ diagnosis.primary }}</p>
+            <p><strong>Notes / Remarks:</strong></p>
+            <p>{{ diagnosis.notes }}</p>
+        </div>
+
+        <div class="section">
+            <h2>Treatment Recommendations</h2>
+            <p>{{ diagnosis.treatment or 'N/A' }}</p>
+        </div>
+
+        <div class="footer">
+            <p>This report was auto-generated by the Clinical Decision Support System.</p>
+            <p><i>Confidential Medical Record. Do not distribute.</i></p>
+        </div>
+    </body>
+    </html>
+    """
+
+    env = Environment(autoescape=select_autoescape(['html', 'xml']))
+    template = env.from_string(template_str)
+    
+    html_content = template.render(
+        generated_at=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        report_id=str(uuid.uuid4()),
+        hospital=hospital_data,
+        patient=patient_data,
+        case=case_data,
+        ai=ai_results,
+        review=review_data,
+        diagnosis=diagnosis_data,
+        orig_img=orig_b64,
+        anno_img=anno_b64
+    )
+
+    # 3. Compile HTML to PDF Bytes using WeasyPrint
+    pdf_bytes = HTML(string=html_content).write_pdf()
+    return pdf_bytes
