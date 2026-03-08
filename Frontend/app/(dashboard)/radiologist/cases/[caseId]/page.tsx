@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 
@@ -119,11 +118,15 @@ export default function ReviewPredictionsPage() {
     const [showAnnotations, setShowAnnotations] = React.useState(true);
     const [showScores, setShowScores] = React.useState(true);
     const [editingId, setEditingId] = React.useState<string | null>(null);
+    const [priority, setPriority] = React.useState<string>('Non_Critical');
 
     // Initialize annotations from AI inference
     React.useEffect(() => {
         if (caseData?.inference_result?.predictions) {
             setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions))); // Deep copy
+        }
+        if (caseData?.priority) {
+            setPriority(caseData.priority);
         }
     }, [caseData]);
 
@@ -167,10 +170,11 @@ export default function ReviewPredictionsPage() {
     const handleSaveProgress = async () => {
         try {
             toast.info('Saving progress...');
-            await api.post(`/reviews/${caseId}/draft`, {
+            await api.post(`/reviews/${caseId}`, {
                 annotations,
                 notes,
                 confidence_threshold: threshold,
+                priority,
             }).catch(() => { });
             toast.success('Progress saved');
         } catch (e) {
@@ -185,7 +189,12 @@ export default function ReviewPredictionsPage() {
                 edited_predictions: annotations,
                 notes,
                 confidence_threshold_applied: threshold,
+                priority,
             }).catch(() => { });
+
+            // Send case to doctor
+            await api.post(`/reviews/${caseId}/send`);
+
             toast.success('Case submitted successfully');
             router.push('/radiologist/cases');
         } catch (e) {
@@ -204,7 +213,7 @@ export default function ReviewPredictionsPage() {
     if (!caseData) return <div>Failed to load case</div>;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)] -mt-4">
+        <div className="flex flex-col min-h-[calc(100vh-6rem)] -mt-4">
             {/* Header Bar */}
             <div className="flex items-center justify-between pb-4 shrink-0">
                 <div className="flex items-center gap-4">
@@ -215,7 +224,7 @@ export default function ReviewPredictionsPage() {
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold tracking-tight">Review AI Predictions</h1>
                             <CaseStatusBadge status={caseData.status} />
-                            {caseData.priority === 'Critical' && <Badge variant="destructive">Critical Priority</Badge>}
+                            {priority === 'Critical' && <Badge variant="destructive">Critical Priority</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground">Case: {caseData.case_id} • Patient: {caseData.patient_id}</p>
                     </div>
@@ -232,10 +241,10 @@ export default function ReviewPredictionsPage() {
             </div>
 
             {/* Main Split Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 overflow-hidden min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6">
 
                 {/* Left Panel: Image Viewer (60%) */}
-                <div className="lg:w-[60%] flex flex-col h-full bg-zinc-950 rounded-lg overflow-hidden border border-border">
+                <div className="lg:w-[60%] flex flex-col h-[60vh] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-4 bg-zinc-950 rounded-lg overflow-hidden border border-border">
 
                     {/* Viewer Toolbar */}
                     <div className="h-12 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 text-sm shrink-0">
@@ -278,7 +287,7 @@ export default function ReviewPredictionsPage() {
                 </div>
 
                 {/* Right Panel: Tools and Data (40%) */}
-                <div className="lg:w-[40%] flex flex-col h-full overflow-hidden space-y-4">
+                <div className="lg:w-[40%] flex flex-col space-y-4">
 
                     {/* Confidence Filter */}
                     <div className="shrink-0">
@@ -290,7 +299,7 @@ export default function ReviewPredictionsPage() {
                         />
                     </div>
 
-                    <ScrollArea className="flex-1 border rounded-lg bg-white dark:bg-zinc-900 p-4">
+                    <div className="flex-1 border rounded-lg bg-white dark:bg-zinc-900 p-4">
                         <div className="space-y-6 pb-6">
 
                             {/* Predictions List */}
@@ -386,6 +395,26 @@ export default function ReviewPredictionsPage() {
 
                             <Separator />
 
+                            {/* Priority Setter */}
+                            <div>
+                                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-gray-500" />
+                                    Case Priority
+                                </h3>
+                                <Select value={priority} onValueChange={setPriority}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select case priority" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Non_Critical">Non-Critical</SelectItem>
+                                        <SelectItem value="High">High Priority</SelectItem>
+                                        <SelectItem value="Critical">Critical (Immediate Attention)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <Separator />
+
                             {/* Notes Editor */}
                             <div>
                                 <h3 className="font-semibold text-lg mb-4">Radiologist Notes</h3>
@@ -397,7 +426,7 @@ export default function ReviewPredictionsPage() {
                             </div>
 
                         </div>
-                    </ScrollArea>
+                    </div>
                 </div>
             </div>
         </div>
