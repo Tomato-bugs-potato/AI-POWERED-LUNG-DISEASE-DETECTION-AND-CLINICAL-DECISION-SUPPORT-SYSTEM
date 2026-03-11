@@ -33,7 +33,7 @@ export type CaseStatus =
     | 'Diagnosed'
     | 'Completed';
 
-export type UrgencyLevel = 'Critical' | 'Non-Critical';
+export type UrgencyLevel = 'Critical' | 'High' | 'Non_Critical';
 
 export interface Image {
     image_id: string;
@@ -77,11 +77,11 @@ export interface RadiologistReview {
 
 export interface Diagnosis {
     diagnosis_id: string;
+    case_id: string;
     doctor_id: string;
     primary_diagnosis: DiseaseClass;
-    secondary_diagnosis?: DiseaseClass;
-    urgency: UrgencyLevel;
-    notes: string;
+    diagnosis_notes: string;
+    urgency_level: UrgencyLevel;
     treatment_recommendations?: string;
     diagnosed_at: string;
 }
