@@ -38,7 +38,7 @@ const fetchPatientDetail = async (id: string): Promise<PatientDetailData> => {
                 case_id: c.case_id,
                 patient_id: id,
                 status: c.status,
-                priority: c.priority || 'Non-Critical',
+                priority: c.priority || 'Non_Critical',
                 upload_date: c.created_at || c.upload_date || new Date().toISOString(),
                 image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
                 radiologist_review: c.radiologist_review || undefined,
