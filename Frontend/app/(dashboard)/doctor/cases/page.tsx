@@ -25,7 +25,7 @@ const fetchDoctorQueue = async (): Promise<Case[]> => {
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status as CaseStatus,
-            priority: (c.priority || 'Non-Critical') as UrgencyLevel,
+            priority: (c.priority || 'Non_Critical') as UrgencyLevel,
             upload_date: c.created_at || c.updated_at || new Date().toISOString(),
             image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' as const },
         })).sort((a: Case, b: Case) => {
@@ -110,7 +110,7 @@ export default function DiagnosisQueuePage() {
                                 <SelectContent>
                                     <SelectItem value="all">All Urgency</SelectItem>
                                     <SelectItem value="Critical">Critical</SelectItem>
-                                    <SelectItem value="Non-Critical">Non-Critical</SelectItem>
+                                    <SelectItem value="Non_Critical">Non-Critical</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -200,7 +200,7 @@ export default function DiagnosisQueuePage() {
                                                             Critical
                                                         </Badge>
                                                     ) : (
-                                                        <span className="text-gray-500 dark:text-gray-400">Non-Critical</span>
+                                                        <span className="text-gray-500 dark:text-gray-400">Routine</span>
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 text-right">

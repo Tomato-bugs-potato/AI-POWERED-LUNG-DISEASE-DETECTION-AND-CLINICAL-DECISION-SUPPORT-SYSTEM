@@ -23,7 +23,7 @@ const fetchPendingDiagnosis = async (): Promise<Case[]> => {
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status,
-            priority: c.priority || 'Non-Critical',
+            priority: c.priority || 'Non_Critical',
             upload_date: c.created_at || c.updated_at || new Date().toISOString(),
             image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
             radiologist_review: c.radiologist_review || undefined,
@@ -63,7 +63,7 @@ export default function DoctorDashboard() {
                 <form onSubmit={handleSearch} className="relative w-full sm:w-72">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
                     <Input
-                        placeholder="Quick patient search..."
+                        placeholder="Search Patient ID..."
                         className="pl-9 bg-white dark:bg-zinc-900"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -78,8 +78,10 @@ export default function DoctorDashboard() {
                         <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">8</div>
-                        <p className="text-xs text-red-600/80 font-medium mt-1">2 critical cases</p>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : (cases?.length || 0)}</div>
+                        <p className="text-xs text-red-600/80 font-medium mt-1">
+                            {cases?.filter(c => c.priority === 'Critical').length || 0} critical cases
+                        </p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -140,6 +142,10 @@ export default function DoctorDashboard() {
                                                 {c.priority === 'Critical' ? (
                                                     <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-0 dark:bg-red-900/40 dark:text-red-300">
                                                         Critical
+                                                    </Badge>
+                                                ) : c.priority === 'High' ? (
+                                                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300">
+                                                        Urgent
                                                     </Badge>
                                                 ) : (
                                                     <span className="text-gray-500 dark:text-gray-400">Routine</span>
