@@ -63,7 +63,7 @@ export default function DoctorDashboard() {
                 <form onSubmit={handleSearch} className="relative w-full sm:w-72">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
                     <Input
-                        placeholder="Search Patient ID..."
+                        placeholder="Quick patient search..."
                         className="pl-9 bg-white dark:bg-zinc-900"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}

@@ -30,7 +30,7 @@ const fetchPatients = async (): Promise<PatientListItem[]> => {
         const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
         return data.map((p: any) => ({
             patient_id: p.patient_id,
-            full_name: `Patient ${p.patient_id}`, // Privacy: omit real names
+            full_name: p.full_name || p.name || `Patient ${p.patient_id}`,
             age: p.age || 0,
             sex: (p.sex || 'Unknown') as PatientSex,
             contact_number: '-',
