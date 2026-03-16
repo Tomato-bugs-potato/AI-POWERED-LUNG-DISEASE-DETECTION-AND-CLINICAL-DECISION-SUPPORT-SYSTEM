@@ -42,18 +42,26 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-    async with async_session_maker() as session:
-        result = await session.execute(select(User).where(User.email == "admin@test.com"))
-        if not result.scalar_one_or_none():
-            admin = User(
-                email="admin@test.com",
-                password_hash=hash_password("password"),
-                name="System Admin",
-                role=Role.Admin
-            )
-            session.add(admin)
-            await session.commit()
-            logger.info("Seeded default admin user: admin@test.com / password")
+        async with async_session_maker() as session:
+            for email, name, role in [
+                ("admin@test.com", "System Admin", Role.Admin),
+                ("doctor@test.com", "Dr. Endashaw", Role.Doctor)
+            ]:
+                result = await session.execute(select(User).where(User.email == email))
+                if not result.scalar_one_or_none():
+                    user = User(
+                        email=email,
+                        password_hash=hash_password("password"),
+                        name=name,
+                        role=role
+                    )
+                    session.add(user)
+                    try:
+                        await session.commit()
+                        logger.info(f"Seeded default {role.value} user: {email} / password")
+                    except IntegrityError:
+                        await session.rollback()
+                        logger.warning(f"User {email} already exists (race condition), skipped seeding.")
     
     # Ensure MinIO buckets exist
     from app.services.storage import ensure_buckets_exist
@@ -79,7 +87,12 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with specific frontend origin in production (e.g., http://localhost:3000)
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

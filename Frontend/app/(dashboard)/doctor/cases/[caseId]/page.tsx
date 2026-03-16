@@ -87,9 +87,9 @@ export default function DiagnosisPage() {
     const handleSaveDraft = async () => {
         toast.info('Saving draft...');
         await api.post(`/diagnoses/${caseId}/draft`, {
-            final_diagnosis: finalDiagnosis,
-            notes: doctorNotes,
-            urgency,
+            primary_diagnosis: finalDiagnosis || 'Normal', // Backend requires a value for draft enum
+            diagnosis_notes: doctorNotes,
+            urgency_level: urgency,
         }).catch(() => { });
         toast.success('Draft saved successfully');
     };
@@ -101,9 +101,9 @@ export default function DiagnosisPage() {
         }
         toast.info('Finalizing diagnosis...');
         await api.post(`/diagnoses/${caseId}`, {
-            final_diagnosis: finalDiagnosis,
-            notes: doctorNotes,
-            urgency,
+            primary_diagnosis: finalDiagnosis,
+            diagnosis_notes: doctorNotes,
+            urgency_level: urgency,
         }).catch(() => { });
         toast.success('Diagnosis finalized successfully');
         router.push('/doctor/cases');

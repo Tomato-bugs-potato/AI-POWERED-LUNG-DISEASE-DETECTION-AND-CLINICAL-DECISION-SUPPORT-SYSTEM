@@ -1,8 +1,18 @@
 import axios from 'axios';
 import { getAccessToken, refreshAccessToken, clearTokens } from './auth';
 
+const normalizeApiBase = (url: string) => {
+    const trimmed = url.replace(/\/+$/, '');
+    return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
+};
+
+const API_BASE_URL = normalizeApiBase(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1');
+
+const isPublicCasesRoute = () =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/doctor/cases');
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseURL: API_BASE_URL,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -32,6 +42,9 @@ api.interceptors.response.use(
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isPublicCasesRoute()) {
+                return Promise.reject(error);
+            }
             originalRequest._retry = true;
 
             try {

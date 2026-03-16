@@ -33,7 +33,7 @@ const fetchPatients = async (): Promise<PatientListItem[]> => {
             full_name: p.full_name || p.name || `Patient ${p.patient_id}`,
             age: p.age || 0,
             sex: (p.sex || 'Unknown') as PatientSex,
-            contact_number: p.contact_number || p.phone || '-',
+            contact_number: '-',
             consent_given: p.consent_given ?? true,
             created_at: p.created_at || p.registration_date || new Date().toISOString(),
             last_visit_date: p.last_visit_date || p.created_at || new Date().toISOString(),
