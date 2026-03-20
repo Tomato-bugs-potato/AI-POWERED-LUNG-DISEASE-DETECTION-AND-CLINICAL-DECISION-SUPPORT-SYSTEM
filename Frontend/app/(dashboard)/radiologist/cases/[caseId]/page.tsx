@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -119,6 +119,8 @@ export default function ReviewPredictionsPage() {
     const [showScores, setShowScores] = React.useState(true);
     const [editingId, setEditingId] = React.useState<string | null>(null);
     const [priority, setPriority] = React.useState<string>('Non_Critical');
+    const [confirmRemoveAll, setConfirmRemoveAll] = React.useState(false);
+    const [confirmRevert, setConfirmRevert] = React.useState(false);
 
     // Initialize annotations from AI inference
     React.useEffect(() => {
@@ -148,23 +150,28 @@ export default function ReviewPredictionsPage() {
         setEditingId(null);
     };
 
-    const handleFocusClick = (id: string) => {
-        // In a real app, this would tell the ImageViewer to pan to the selection
-        toast('Focusing on detection region...', { icon: '🔍' });
+    const handleFocusClick = (_id: string) => {
+        toast.info('Focusing on detection region...');
     };
 
     const handleRemoveAll = () => {
-        if (confirm("Are you sure you want to mark ALL AI detections as false positives?")) {
-            setAnnotations(prev => prev.map(a => ({ ...a, is_false_positive: true })));
-        }
+        setConfirmRemoveAll(true);
+    };
+
+    const confirmRemoveAllAction = () => {
+        setAnnotations(prev => prev.map(a => ({ ...a, is_false_positive: true })));
+        setConfirmRemoveAll(false);
     };
 
     const handleRevert = () => {
+        setConfirmRevert(true);
+    };
+
+    const confirmRevertAction = () => {
         if (caseData?.inference_result?.predictions) {
-            if (confirm("Are you sure you want to revert to the original AI predictions? All manual edits will be lost.")) {
-                setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions)));
-            }
+            setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions)));
         }
+        setConfirmRevert(false);
     };
 
     const handleSaveProgress = async () => {
@@ -309,9 +316,19 @@ export default function ReviewPredictionsPage() {
                                         Analysis Results
                                     </h3>
                                     <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-red-500" onClick={handleRemoveAll}>
-                                        Remove All
+                                        Mark All False Positive
                                     </Button>
                                 </div>
+
+                                {confirmRemoveAll && (
+                                    <div className="mb-3 p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 text-sm">
+                                        <p className="text-red-800 dark:text-red-300 font-medium mb-2">Mark all detections as false positives?</p>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={confirmRemoveAllAction}>Confirm</Button>
+                                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setConfirmRemoveAll(false)}>Cancel</Button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="space-y-3">
                                     {annotations.map((ann) => {
@@ -383,11 +400,23 @@ export default function ReviewPredictionsPage() {
                                     })}
 
                                     {annotations.filter(a => !a.is_false_positive).length === 0 && (
-                                        <div className="text-center p-6 border border-dashed rounded-lg bg-muted/50">
-                                            <p className="text-sm text-gray-500">No abnormalities detected.</p>
-                                            <Button variant="link" onClick={handleRevert} className="mt-2 text-xs">
-                                                Revert to original AI predictions
-                                            </Button>
+                                        <div className="p-4 border border-dashed rounded-lg bg-muted/50">
+                                            <p className="text-sm text-gray-500 mb-3">No abnormalities detected.</p>
+                                            {confirmRevert ? (
+                                                <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 text-sm">
+                                                    <p className="text-amber-800 dark:text-amber-300 font-medium mb-2">Revert to original AI predictions? All manual edits will be lost.</p>
+                                                    <div className="flex gap-2">
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs border-amber-300" onClick={confirmRevertAction}>
+                                                            <RotateCcw className="mr-1 h-3 w-3" /> Revert
+                                                        </Button>
+                                                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setConfirmRevert(false)}>Cancel</Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <Button variant="outline" size="sm" className="text-xs" onClick={handleRevert}>
+                                                    <RotateCcw className="mr-1 h-3 w-3" /> Revert to original AI predictions
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                 </div>

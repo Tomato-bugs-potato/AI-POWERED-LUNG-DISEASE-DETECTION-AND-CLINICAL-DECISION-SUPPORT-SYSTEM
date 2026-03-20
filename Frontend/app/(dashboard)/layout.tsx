@@ -99,7 +99,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Prevent hydration mismatch by using null on first render/SSR
     const displayedUser = mounted ? user : null;
 
-    // Temporarily default to Radiologist for UI development if user is null
     const currentRole = displayedUser?.role || Role.Radiologist;
     const navItems = getNavItems(currentRole);
 
@@ -154,7 +153,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                                 <span className="flex-1 truncate">{item.name}</span>
                                 {item.showBadge && criticalCount > 0 && (
-                                    <Badge variant="destructive" className="ml-ml-auto shrink-0 animate-pulse text-xs px-1.5 py-0">
+                                    <Badge variant="destructive" className="ml-auto shrink-0 animate-pulse text-xs px-1.5 py-0">
                                         {criticalCount}
                                     </Badge>
                                 )}
