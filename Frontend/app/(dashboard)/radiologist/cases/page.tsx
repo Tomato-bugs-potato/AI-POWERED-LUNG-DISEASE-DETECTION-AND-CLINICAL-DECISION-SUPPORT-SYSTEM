@@ -197,7 +197,9 @@ export default function CasesQueuePage() {
                                                             Critical
                                                         </Badge>
                                                     ) : (
-                                                        <span className="text-gray-500 dark:text-gray-400">Non-Critical</span>
+                                                        <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-100 border-0 dark:bg-zinc-800 dark:text-gray-400">
+                                                            Routine
+                                                        </Badge>
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-4 text-right">

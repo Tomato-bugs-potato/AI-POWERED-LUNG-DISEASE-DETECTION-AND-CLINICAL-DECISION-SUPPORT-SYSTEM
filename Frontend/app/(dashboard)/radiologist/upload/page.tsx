@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, X, FileImage, Search, User, FileWarning, Loader2, AlertTriangle } from 'lucide-react';
+import { Upload, X, FileImage, Search, User, FileWarning, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { PatientRegistrationForm } from '@/components/shared/PatientRegistrationForm';
 import { Patient } from '@/types';
 import { toast } from 'sonner';
@@ -32,15 +34,14 @@ export default function UploadXrayPage() {
     const [fileError, setFileError] = React.useState<string | null>(null);
     const [duplicateWarning, setDuplicateWarning] = React.useState<boolean>(false);
 
-    // Consent State for Existing Patient (New patient consent handled by form)
+    // Consent State for Existing Patient
     const [existingPatientConsent, setExistingPatientConsent] = React.useState(false);
 
-    // Handlers for File Selection
     const validateFile = (selectedFile: File): boolean => {
         setFileError(null);
         setDuplicateWarning(false);
 
-        const validTypes = ['image/jpeg', 'image/png', 'application/dicom']; // Added basic mime types
+        const validTypes = ['image/jpeg', 'image/png', 'application/dicom'];
         const isExtensionValid = /\.(jpg|jpeg|png|dcm|dicom)$/i.test(selectedFile.name);
 
         if (!validTypes.includes(selectedFile.type) && !isExtensionValid) {
@@ -48,7 +49,6 @@ export default function UploadXrayPage() {
             return false;
         }
 
-        // 20MB limit
         if (selectedFile.size > 20 * 1024 * 1024) {
             setFileError('File exceeds maximum size limit (20MB)');
             return false;
@@ -76,7 +76,6 @@ export default function UploadXrayPage() {
             const droppedFile = e.dataTransfer.files[0];
             if (validateFile(droppedFile)) {
                 setFile(droppedFile);
-                // Mock duplicate detection check
                 if (droppedFile.name.includes('duplicate')) {
                     setDuplicateWarning(true);
                 }
@@ -97,7 +96,6 @@ export default function UploadXrayPage() {
         }
     };
 
-    // Handlers for Patient Search
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!searchQuery.trim()) return;
@@ -121,14 +119,12 @@ export default function UploadXrayPage() {
         setIsSearching(false);
     };
 
-    // Submission
     const handleSubmit = async () => {
         if (!file || !selectedPatient) return;
 
         setIsUploading(true);
         setUploadProgress(0);
 
-        // Simulating progress
         const interval = setInterval(() => {
             setUploadProgress(prev => {
                 if (prev >= 95) {
@@ -140,7 +136,6 @@ export default function UploadXrayPage() {
         }, 100);
 
         try {
-            // 1. Create a new case
             const caseResponse = await api.post('/cases/', {
                 patient_id: selectedPatient.patient_id,
                 visit_date: new Date().toISOString().split('T')[0]
@@ -148,7 +143,6 @@ export default function UploadXrayPage() {
 
             const newCaseId = caseResponse.data.case_id;
 
-            // 2. Upload image pointing to that case
             const formData = new FormData();
             formData.append('file', file);
             formData.append('case_id', newCaseId);
@@ -171,14 +165,12 @@ export default function UploadXrayPage() {
                 router.push(`/radiologist/cases/${newCaseId}`);
             }, 500);
 
-        } catch (e) {
+        } catch {
             clearInterval(interval);
             setIsUploading(false);
             setFileError('File appears corrupted or upload failed. Please try another.');
         }
     };
-
-    const isFormValid = file && selectedPatient && (!duplicateWarning || duplicateWarning); // can proceed if warning bypassed - wait, button logic will handle this
 
     return (
         <div className="max-w-6xl mx-auto space-y-6">
@@ -267,15 +259,16 @@ export default function UploadXrayPage() {
                                                 </div>
                                             </div>
 
-                                            <label className="flex items-center space-x-2 border rounded p-3 bg-muted/30">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded border-gray-300"
+                                            <div className="flex items-start gap-3 border rounded-lg p-3 bg-muted/30">
+                                                <Checkbox
+                                                    id="consent"
                                                     checked={existingPatientConsent}
-                                                    onChange={(e) => setExistingPatientConsent(e.target.checked)}
+                                                    onCheckedChange={(checked) => setExistingPatientConsent(checked === true)}
                                                 />
-                                                <span className="text-sm font-medium">I confirm patient consent has been obtained for this visit</span>
-                                            </label>
+                                                <Label htmlFor="consent" className="text-sm font-medium leading-snug cursor-pointer">
+                                                    I confirm patient consent has been obtained for this visit
+                                                </Label>
+                                            </div>
                                         </div>
                                     )}
                                 </CardContent>
@@ -330,7 +323,6 @@ export default function UploadXrayPage() {
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col space-y-4">
 
-                            {/* Dropzone */}
                             {!file ? (
                                 <div
                                     className={`border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center text-center transition-colors flex-1 min-h-[250px]
@@ -364,7 +356,7 @@ export default function UploadXrayPage() {
                                     />
 
                                     <p className="text-xs text-muted-foreground mt-6">
-                                        Accepted formats: PNG, JPEG, DICOM
+                                        Accepted formats: PNG, JPEG, DICOM • Max 20MB
                                     </p>
                                 </div>
                             ) : (
@@ -400,7 +392,6 @@ export default function UploadXrayPage() {
                                 </div>
                             )}
 
-                            {/* Errors & Warnings */}
                             {fileError && (
                                 <Alert variant="destructive">
                                     <FileWarning className="h-4 w-4" />
@@ -430,13 +421,13 @@ export default function UploadXrayPage() {
                         </CardContent>
                         <CardFooter className="pt-2 border-t mt-auto">
                             <Button
-                                className="w-full"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                                 size="lg"
                                 disabled={
                                     !file ||
                                     !selectedPatient ||
                                     isUploading ||
-                                    (selectedPatient && !selectedPatient.registration_date && !existingPatientConsent) // check consent if it's existing patient
+                                    (!!selectedPatient.registration_date && !existingPatientConsent)
                                 }
                                 onClick={handleSubmit}
                             >
@@ -454,6 +445,3 @@ export default function UploadXrayPage() {
         </div>
     );
 }
-
-// Need to import CheckCircle2 above
-import { CheckCircle2 } from 'lucide-react';

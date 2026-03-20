@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, Mail, Phone, Hospital, Shield, Calendar } from 'lucide-react';
+import { User, Mail, Hospital, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ProfilePage() {
