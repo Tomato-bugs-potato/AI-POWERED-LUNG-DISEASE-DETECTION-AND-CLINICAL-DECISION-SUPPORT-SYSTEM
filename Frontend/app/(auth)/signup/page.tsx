@@ -140,14 +140,14 @@ export default function SignupPage() {
                                             <FormLabel>Clinical Role</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                                                 <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select your role" />
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select your clinical role" />
                                                     </SelectTrigger>
                                                 </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="Doctor">Doctor / Physician</SelectItem>
-                                                    <SelectItem value="Radiologist">Radiologist</SelectItem>
-                                                    <SelectItem value="Lab_Technician">Lab Technician</SelectItem>
+                                                <SelectContent className="w-full bg-white dark:bg-zinc-900 border border-border shadow-lg">
+                                                    <SelectItem value="Doctor" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Doctor / Physician</SelectItem>
+                                                    <SelectItem value="Radiologist" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Radiologist</SelectItem>
+                                                    <SelectItem value="Lab_Technician" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Lab Technician</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
