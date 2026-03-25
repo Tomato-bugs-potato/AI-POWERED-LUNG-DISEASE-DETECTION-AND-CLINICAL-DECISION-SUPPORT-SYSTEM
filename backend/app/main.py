@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import IntegrityError
 from app.config import settings
 from app.api.v1.router import api_router
 from contextlib import asynccontextmanager
@@ -41,27 +42,28 @@ async def lifespan(app: FastAPI):
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
-        async with async_session_maker() as session:
-            for email, name, role in [
-                ("admin@test.com", "System Admin", Role.Admin),
-                ("doctor@test.com", "Dr. Endashaw", Role.Doctor)
-            ]:
-                result = await session.execute(select(User).where(User.email == email))
-                if not result.scalar_one_or_none():
-                    user = User(
-                        email=email,
-                        password_hash=hash_password("password"),
-                        name=name,
-                        role=role
-                    )
-                    session.add(user)
-                    try:
-                        await session.commit()
-                        logger.info(f"Seeded default {role.value} user: {email} / password")
-                    except IntegrityError:
-                        await session.rollback()
-                        logger.warning(f"User {email} already exists (race condition), skipped seeding.")
+
+        if settings.SEED_TEST_USERS:
+            async with async_session_maker() as session:
+                for email, name, role in [
+                    ("admin@test.com", "System Admin", Role.Admin),
+                    ("doctor@test.com", "Dr. Endashaw", Role.Doctor)
+                ]:
+                    result = await session.execute(select(User).where(User.email == email))
+                    if not result.scalar_one_or_none():
+                        user = User(
+                            email=email,
+                            password_hash=hash_password("password"),
+                            name=name,
+                            role=role
+                        )
+                        session.add(user)
+                        try:
+                            await session.commit()
+                            logger.info(f"Seeded default {role.value} user: {email} / password")
+                        except IntegrityError:
+                            await session.rollback()
+                            logger.warning(f"User {email} already exists (race condition), skipped seeding.")
     
     # Ensure MinIO buckets exist
     from app.services.storage import ensure_buckets_exist
@@ -70,10 +72,21 @@ async def lifespan(app: FastAPI):
         logger.info("MinIO buckets verified/created")
     except Exception as e:
         logger.warning(f"Could not ensure MinIO buckets: {e}")
-            
+
+    # Initialize Redis connection
+    from app.core.redis import get_redis
+    try:
+        redis = await get_redis()
+        await redis.ping()
+        logger.info("Redis connection established")
+    except Exception as e:
+        logger.warning(f"Redis connection failed (non-fatal): {e}")
+
     yield
-    # Shutdown: Close connections here
+    # Shutdown: Close connections
     logger.info("Shutting down FastAPI application...")
+    from app.core.redis import close_redis
+    await close_redis()
     await engine.dispose()
 
 app = FastAPI(
@@ -84,15 +97,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — origins read from FRONTEND_URL env var (comma-separated)
+_cors_origins = [o.strip() for o in settings.FRONTEND_URL.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

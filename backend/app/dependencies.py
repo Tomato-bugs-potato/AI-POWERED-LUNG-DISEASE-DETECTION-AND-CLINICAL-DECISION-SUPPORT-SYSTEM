@@ -20,9 +20,7 @@ async def get_current_user(
     check their status, and set PostgreSQL Row-Level Security variables.
     """
     token = credentials.credentials
-    
-    # Optional Step: Implement Redis Cache lookup here
-    
+
     # 1. Decode generic JWT payload
     payload = decode_access_token(token)
     user_id_str: str = payload.get("sub")
@@ -31,8 +29,24 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing user identifier"
         )
+
+    # 2. Check token blacklist in Redis (set on logout)
+    try:
+        from app.core.redis import get_redis
+        redis = await get_redis()
+        if redis is not None:
+            is_blacklisted = await redis.get(f"blacklist:user:{user_id_str}")
+            if is_blacklisted:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked. Please log in again."
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Redis unavailable — allow request (non-fatal)
         
-    # 2. Fetch User from DB
+    # 3. Fetch User from DB
     stmt = select(User).where(User.user_id == user_id_str)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
@@ -40,13 +54,13 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
         
-    # 3. Check Account Status
+    # 4. Check Account Status
     if user.status == UserStatus.Inactive:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
     if user.status == UserStatus.Locked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account locked — contact admin")
         
-    # 4. Set PostgreSQL Session Role for RLS (Row Level Security)
+    # 5. Set PostgreSQL Session Role for RLS (Row Level Security)
     # This ensures Postgres applies policies based on this current user
     try:
         await db.execute(

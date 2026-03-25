@@ -8,10 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Helper to send email via SMTP (Using SendGrid setup)
 def send_email(to_email: str, subject: str, html_content: str):
     """
-    Sends an email using the configured SMTP server. Built for Sendgrid.
+    Sends an email using the configured SMTP server.
     Raises exception on failure to allow Celery to handle retries.
     """
     try:
@@ -19,19 +18,18 @@ def send_email(to_email: str, subject: str, html_content: str):
         msg["Subject"] = subject
         msg["From"] = settings.EMAIL_FROM
         msg["To"] = to_email
-        
+
         part = MIMEText(html_content, "html")
         msg.attach(part)
-        
-        # Sendgrid standard SMTP configuration
-        server = smtplib.SMTP("smtp.sendgrid.net", 587)
+
+        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
         server.starttls()
-        server.login("apikey", settings.SENDGRID_API_KEY)
+        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.sendmail(settings.EMAIL_FROM, to_email, msg.as_string())
         server.quit()
-        
-        logger.info(f"📧 Successfully sent '{subject}' to {to_email}")
-        
+
+        logger.info(f"Successfully sent '{subject}' to {to_email}")
+
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {str(e)}")
         raise e

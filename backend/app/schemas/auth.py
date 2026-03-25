@@ -36,3 +36,10 @@ class MessageResponse(BaseModel):
 class LoginResponse(BaseModel):
     message: str
     user_id: uuid.UUID
+    otp_code: str  # returned so the client can dispatch it via EmailJS
+    email: str     # needed so the client knows where to send the email
+
+class OTPResendResponse(BaseModel):
+    message: str
+    otp_code: str
+    email: str

@@ -37,7 +37,7 @@ export function ImageViewer({
     const stageRef = React.useRef<any>(null);
     const transformerRef = React.useRef<any>(null);
 
-    const [image] = useImage(imageUrl || 'https://placehold.co/800x1000/111827/ffffff?text=X-Ray+Placeholder', 'anonymous');
+    const [image, imageStatus] = useImage(imageUrl || 'https://placehold.co/800x1000/111827/ffffff?text=X-Ray+Placeholder', 'anonymous');
     const [dimensions, setDimensions] = React.useState({ width: 800, height: 600 });
 
     // Viewport states
@@ -235,6 +235,24 @@ export function ImageViewer({
     return (
         <div className="relative w-full h-full flex flex-col bg-zinc-950 rounded-lg overflow-hidden border border-border group" ref={containerRef}>
 
+            {/* Loading / Error overlays */}
+            {imageStatus === 'loading' && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-zinc-950/80">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400" />
+                        <span className="text-zinc-400 text-sm">Loading X-ray image…</span>
+                    </div>
+                </div>
+            )}
+            {imageStatus === 'failed' && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-zinc-950/80">
+                    <div className="flex flex-col items-center gap-2 text-center px-4">
+                        <span className="text-red-400 text-sm font-medium">Failed to load image</span>
+                        <span className="text-zinc-500 text-xs">The X-ray could not be retrieved. Please try refreshing the page.</span>
+                    </div>
+                </div>
+            )}
+
             {/* Zoom and Tools Overlay */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center p-1.5 bg-zinc-900/80 backdrop-blur border border-zinc-700 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
                 <TooltipProvider>
@@ -247,6 +265,7 @@ export function ImageViewer({
                                         <Button
                                             variant={activeTool === 'pan' ? 'default' : 'ghost'}
                                             size="icon"
+                                            aria-label="Pan Tool"
                                             className={`h-8 w-8 rounded-none ${activeTool === 'pan' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
                                             onClick={() => setActiveTool('pan')}
                                         >
@@ -261,6 +280,7 @@ export function ImageViewer({
                                         <Button
                                             variant={activeTool === 'select' ? 'default' : 'ghost'}
                                             size="icon"
+                                            aria-label="Select Tool"
                                             className={`h-8 w-8 rounded-none ${activeTool === 'select' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
                                             onClick={() => setActiveTool('select')}
                                         >
@@ -275,6 +295,7 @@ export function ImageViewer({
                                         <Button
                                             variant={activeTool === 'draw' ? 'default' : 'ghost'}
                                             size="icon"
+                                            aria-label="Draw Bounding Box"
                                             className={`h-8 w-8 rounded-none ${activeTool === 'draw' ? 'bg-blue-600 text-white' : 'text-zinc-400'}`}
                                             onClick={() => { setActiveTool('draw'); setSelectedId(null); }}
                                         >
@@ -290,7 +311,7 @@ export function ImageViewer({
 
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={handleZoomOut}>
+                            <Button variant="ghost" size="icon" aria-label="Zoom Out" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={handleZoomOut}>
                                 <ZoomOut className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -303,7 +324,7 @@ export function ImageViewer({
 
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={handleZoomIn}>
+                            <Button variant="ghost" size="icon" aria-label="Zoom In" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={handleZoomIn}>
                                 <ZoomIn className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -312,7 +333,7 @@ export function ImageViewer({
 
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white ml-1" onClick={handleReset}>
+                            <Button variant="ghost" size="icon" aria-label="Reset View" className="h-8 w-8 text-zinc-400 hover:text-white ml-1" onClick={handleReset}>
                                 <RotateCcw className="h-4 w-4" />
                             </Button>
                         </TooltipTrigger>
@@ -443,6 +464,15 @@ export function ImageViewer({
                         )}
                     </Layer>
                 </Stage>
+            </div>
+
+            {/* NFR-24: Screen reader support for diagnostic regions */}
+            <div role="status" aria-live="polite" className="sr-only">
+                {annotations.length} detection{annotations.length !== 1 ? 's' : ''} found
+                {annotations.length > 0 && ': '}
+                {annotations.map((a, i) =>
+                    `${a.disease_class} at ${Math.round((a.confidence_score || 0) * 100)}% confidence`
+                ).join(', ')}
             </div>
         </div>
     );

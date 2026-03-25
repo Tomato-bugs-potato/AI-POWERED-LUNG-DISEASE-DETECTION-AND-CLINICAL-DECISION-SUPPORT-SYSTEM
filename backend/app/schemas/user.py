@@ -29,3 +29,4 @@ class UserResponse(UserBase):
 
 class UserRoleUpdate(BaseModel):
     role: Role
+    approver_admin_id: Optional[uuid.UUID] = None  # Required when promoting to Admin (FR-17)

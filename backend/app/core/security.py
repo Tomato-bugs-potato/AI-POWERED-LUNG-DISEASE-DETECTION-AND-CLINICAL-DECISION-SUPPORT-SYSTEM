@@ -1,10 +1,11 @@
+import re
+import secrets
+import hashlib
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from fastapi import HTTPException, status
 from app.config import settings
-import secrets
-import hashlib
 
 # Password Hashing
 pwd_context = CryptContext(
@@ -12,6 +13,21 @@ pwd_context = CryptContext(
     deprecated="auto",
     argon2__time_cost=12,
 )
+
+def validate_password(password: str) -> tuple[bool, str]:
+    """Enforce password policy: 12+ chars, upper, lower, digit, special character."""
+    if len(password) < 12:
+        return False, "Password must be at least 12 characters"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one digit"
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>\-_=+\[\]\\;\'`~]', password):
+        return False, "Password must contain at least one special character"
+    return True, "OK"
+
 
 def hash_password(plain: str) -> str:
     return pwd_context.hash(plain)

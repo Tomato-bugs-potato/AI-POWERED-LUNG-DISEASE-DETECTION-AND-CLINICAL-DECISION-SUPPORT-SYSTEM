@@ -48,7 +48,8 @@ def get_presigned_url(bucket_name: str, object_name: str, expires_sec: int = set
             object_name, 
             expires=datetime.timedelta(seconds=expires_sec)
         )
-        # Replace Docker-internal hostname with browser-accessible one
+        # Replace Docker-internal hostname with browser-accessible localhost
+        # (browser runs on the same machine as MinIO, so localhost works)
         url = url.replace("minio:9000", "localhost:9000")
         return url
     except Exception as e:
@@ -63,3 +64,16 @@ def file_exists(bucket_name: str, object_name: str) -> bool:
         if exc.code == "NoSuchKey":
             return False
         raise
+
+def get_file_data(bucket_name: str, object_name: str) -> tuple[bytes, str]:
+    """Download file bytes and content-type from MinIO."""
+    try:
+        stat = minio_client.stat_object(bucket_name, object_name)
+        response = minio_client.get_object(bucket_name, object_name)
+        data = response.read()
+        response.close()
+        response.release_conn()
+        content_type = stat.content_type or "application/octet-stream"
+        return data, content_type
+    except S3Error as exc:
+        raise Exception(f"Download from MinIO failed: {str(exc)}")

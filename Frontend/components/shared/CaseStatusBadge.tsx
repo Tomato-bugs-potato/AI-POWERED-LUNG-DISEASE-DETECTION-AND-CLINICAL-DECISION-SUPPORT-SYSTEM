@@ -28,7 +28,11 @@ export function CaseStatusBadge({ status, className = '' }: CaseStatusBadgeProps
     const label = status.replace(/_/g, ' ');
 
     return (
-        <Badge variant="secondary" className={`${getBadgeStyle()} border-0 ${className}`}>
+        <Badge
+            variant="secondary"
+            className={`${getBadgeStyle()} border-0 ${className}`}
+            aria-label={`Case status: ${label}`}
+        >
             {label}
         </Badge>
     );

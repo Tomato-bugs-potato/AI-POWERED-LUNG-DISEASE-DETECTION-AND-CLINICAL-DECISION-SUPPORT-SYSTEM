@@ -24,7 +24,7 @@ import api from '@/lib/api';
 const CLASS_COLORS: Record<string, string> = {
     'Pneumonia': 'bg-red-500',
     'Tuberculosis': 'bg-yellow-500',
-    'Lung Tumor': 'bg-orange-500',
+    'Lung_Tumor': 'bg-orange-500',
     'Normal': 'bg-green-500',
     'Other': 'bg-blue-500',
 };
@@ -34,34 +34,45 @@ const fetchCaseDetails = async (id: string): Promise<Case> => {
         const response = await api.get(`/cases/${id}`);
         const c = response.data;
 
-        // Fetch presigned URL for the first image if available
+        // Fetch image bytes through API proxy (includes JWT auth), create blob URL for canvas
         let imageUrl = '';
         const firstImage = c.images?.[0];
         if (firstImage?.image_id) {
             try {
-                const urlResponse = await api.get(`/images/${firstImage.image_id}/url`);
-                imageUrl = urlResponse.data.url;
+                const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
+                    responseType: 'blob',
+                });
+                imageUrl = URL.createObjectURL(imgRes.data);
             } catch {
                 imageUrl = firstImage.file_url ? `http://localhost:9000/xray-images/${firstImage.file_url}` : '';
             }
         }
 
-        // Polling logic for inference results (since it's async on the backend)
+        // Polling for inference results — AI inference is async so we retry with backoff
         let inferenceData = firstImage?.inference_results?.[0];
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 30; // up to ~60 seconds total
 
-        // If we don't have inference data but the image uploaded just now, wait and retry
         while (!inferenceData && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const delay = attempts < 5 ? 1000 : 2000; // 1s for first 5, then 2s
+            await new Promise(resolve => setTimeout(resolve, delay));
             const retryResponse = await api.get(`/cases/${id}`);
             const retryC = retryResponse.data;
 
             const newFirstImage = retryC.images?.[0];
             if (newFirstImage) {
-                // Update the outer properties if we got a new image
-                imageUrl = newFirstImage.file_url ? `http://localhost:9000/xray-images/${newFirstImage.file_url}` : imageUrl;
                 inferenceData = newFirstImage.inference_results?.[0];
+                // Refresh image URL via proxy if not already set
+                if (!imageUrl && newFirstImage.image_id) {
+                    try {
+                        const imgRes = await api.get(`/images/${newFirstImage.image_id}/proxy`, {
+                            responseType: 'blob',
+                        });
+                        imageUrl = URL.createObjectURL(imgRes.data);
+                    } catch {
+                        imageUrl = newFirstImage.file_url ? `http://localhost:9000/xray-images/${newFirstImage.file_url}` : imageUrl;
+                    }
+                }
             }
             attempts++;
         }
@@ -78,7 +89,7 @@ const fetchCaseDetails = async (id: string): Promise<Case> => {
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status,
-            priority: c.priority || 'Non-Critical',
+            priority: c.priority || 'Non_Critical',
             upload_date: c.created_at || new Date().toISOString(),
             image: firstImage ? { image_id: firstImage.image_id, file_url: imageUrl, upload_date: firstImage.uploaded_at || '', format: firstImage.file_format || 'DICOM' } : { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
             inference_result: {
@@ -93,7 +104,7 @@ const fetchCaseDetails = async (id: string): Promise<Case> => {
             case_id: id,
             patient_id: 'Unknown',
             status: 'Pending_Review',
-            priority: 'Non-Critical',
+            priority: 'Non_Critical',
             upload_date: new Date().toISOString(),
             image: { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
             inference_result: { inference_id: '', model_version: '', processing_time_ms: 0, predictions: [] },
@@ -178,9 +189,9 @@ export default function ReviewPredictionsPage() {
         try {
             toast.info('Saving progress...');
             await api.post(`/reviews/${caseId}`, {
-                annotations,
+                annotations: { edited_predictions: annotations },
                 notes,
-                confidence_threshold: threshold,
+                confidence_threshold_applied: threshold,
                 priority,
             }).catch(() => { });
             toast.success('Progress saved');
@@ -193,7 +204,7 @@ export default function ReviewPredictionsPage() {
         try {
             toast.info('Submitting review to Doctor...');
             await api.post(`/reviews/${caseId}`, {
-                edited_predictions: annotations,
+                annotations: { edited_predictions: annotations },
                 notes,
                 confidence_threshold_applied: threshold,
                 priority,
@@ -238,10 +249,10 @@ export default function ReviewPredictionsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={handleSaveProgress}>
+                    <Button variant="outline" onClick={handleSaveProgress} aria-label="Save review as draft">
                         <Save className="mr-2 h-4 w-4" /> Save Draft
                     </Button>
-                    <Button onClick={handleSubmit}>
+                    <Button onClick={handleSubmit} aria-label="Submit review and send case to doctor for diagnosis">
                         <Send className="mr-2 h-4 w-4" /> Send to Doctor
                     </Button>
                 </div>
@@ -436,7 +447,6 @@ export default function ReviewPredictionsPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Non_Critical">Non-Critical</SelectItem>
-                                        <SelectItem value="High">High Priority</SelectItem>
                                         <SelectItem value="Critical">Critical (Immediate Attention)</SelectItem>
                                     </SelectContent>
                                 </Select>

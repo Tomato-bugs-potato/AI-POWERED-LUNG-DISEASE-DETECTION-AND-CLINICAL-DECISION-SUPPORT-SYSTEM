@@ -18,39 +18,45 @@ const fetchReportDetail = async (id: string) => {
             case_id: r.case_id || id,
             status: r.status || 'Final',
             generated_at: r.generated_at || r.created_at || new Date().toISOString(),
+            pdf_url: r.pdf_url || null,
             patient: {
                 id: r.patient?.patient_id || r.patient_id || 'Unknown',
-                name: r.patient?.name || r.patient_name || 'Unknown',
+                name: r.patient?.name || `Patient ${(r.patient_id || '').toString().substring(0, 8)}`,
                 age: r.patient?.age || 0,
                 sex: r.patient?.sex || 'Unknown',
-                contact: r.patient?.contact || r.patient?.phone || 'N/A',
+                contact: 'N/A',
             },
             clinical_details: {
-                date_of_exam: r.clinical_details?.date_of_exam || r.exam_date || new Date().toISOString(),
-                modality: r.clinical_details?.modality || 'Chest X-Ray (PA View)',
-                referring_physician: r.clinical_details?.referring_physician || 'N/A',
+                date_of_exam: r.generated_at || new Date().toISOString(),
+                modality: 'Chest X-Ray (PA View)',
+                referring_physician: 'N/A',
             },
             radiologist: {
-                name: r.radiologist?.name || r.radiologist_name || 'Radiologist',
-                findings: r.radiologist?.findings || r.radiological_findings || 'No findings recorded.',
+                name: r.radiologist?.name || 'Radiologist',
+                findings: r.radiologist?.findings || 'No findings recorded.',
             },
             ai_inference: {
-                model_version: r.ai_inference?.model_version || 'v2.1',
-                primary_finding: r.ai_inference?.primary_finding || r.ai_finding || 'N/A',
+                model_version: r.ai_inference?.model_version || 'unknown',
+                primary_finding: r.ai_inference?.primary_finding || 'N/A',
                 confidence: r.ai_inference?.confidence || 0,
             },
             doctor: {
-                name: r.doctor?.name || r.doctor_name || 'Doctor',
-                final_diagnosis: r.doctor?.final_diagnosis || r.final_diagnosis || 'Pending',
-                recommendations: r.doctor?.recommendations || r.recommendations || 'No recommendations recorded.',
+                name: r.doctor?.name || 'Doctor',
+                final_diagnosis: r.final_diagnosis || 'Pending',
+                recommendations: r.doctor?.recommendations || 'No recommendations recorded.',
             },
         };
-    } catch {
+    } catch (error: any) {
+        if (error.response?.status === 404) {
+            throw error; // Throw so react-query can retry
+        }
+
         return {
             report_id: `REP-${id}`,
             case_id: id,
             status: 'Draft',
             generated_at: new Date().toISOString(),
+            pdf_url: null,
             patient: { id: 'Unknown', name: 'Unknown', age: 0, sex: 'Unknown', contact: 'N/A' },
             clinical_details: { date_of_exam: new Date().toISOString(), modality: 'Chest X-Ray (PA View)', referring_physician: 'N/A' },
             radiologist: { name: 'Unknown', findings: 'Failed to load report.' },
@@ -65,22 +71,39 @@ export default function ReportPreviewPage() {
     const router = useRouter();
     const caseId = params.caseId as string;
 
-    const { data: report, isLoading } = useQuery({
+    const { data: report, isLoading, error } = useQuery({
         queryKey: ['report', caseId],
         queryFn: () => fetchReportDetail(caseId),
+        retry: (failureCount, err: any) => {
+            // Retry on 404 while Celery generates the PDF — up to 6 attempts (~18s)
+            if (err?.response?.status === 404 && failureCount < 6) return true;
+            return false;
+        },
+        retryDelay: 3000,
     });
 
     const handlePrint = () => window.print();
 
     if (isLoading) {
         return (
-            <div className="flex h-[80vh] items-center justify-center">
+            <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                <p className="text-muted-foreground animate-pulse">Generating Report PDF...</p>
             </div>
         );
     }
 
-    if (!report) return <div>Failed to load report</div>;
+    if (error || !report) {
+        return (
+            <div className="flex flex-col h-[80vh] items-center justify-center gap-4">
+                <p className="text-lg font-semibold text-destructive">Report Not Found</p>
+                <p className="text-muted-foreground text-sm">The report for this case has not been generated yet or the case does not exist.</p>
+                <Button variant="outline" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                </Button>
+            </div>
+        );
+    }
 
     return (
         <>

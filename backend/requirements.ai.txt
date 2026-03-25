@@ -15,3 +15,5 @@ cjm_torchvision_tfms
 minio
 python-dotenv
 pydicom
+matplotlib
+httpx

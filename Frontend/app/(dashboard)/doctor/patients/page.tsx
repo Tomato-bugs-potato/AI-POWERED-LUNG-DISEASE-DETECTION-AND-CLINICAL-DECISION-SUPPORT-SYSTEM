@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, Users, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
+import { Search, Users, ChevronLeft, ChevronRight, FileQuestion, FileDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Patient, PatientSex } from '@/types';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 
 // Extend Patient type for the list view to include some aggregate data
 interface PatientListItem extends Patient {
@@ -77,6 +78,25 @@ function PatientsDirectoryContent() {
         }
     }, [initialSearch]);
 
+    const handleExportCSV = async () => {
+        try {
+            const params: Record<string, string> = {};
+            if (search) params.patient_id = search;
+            const response = await api.get('/patients/search/export/csv', { params, responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'patients.csv');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Patient list exported successfully');
+        } catch {
+            toast.error('Failed to export patient list');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -87,6 +107,9 @@ function PatientsDirectoryContent() {
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Search and manage patient records and clinical histories.</p>
                 </div>
+                <Button variant="outline" onClick={handleExportCSV} aria-label="Export patient list as CSV file">
+                    <FileDown className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
             </div>
 
             <Card>

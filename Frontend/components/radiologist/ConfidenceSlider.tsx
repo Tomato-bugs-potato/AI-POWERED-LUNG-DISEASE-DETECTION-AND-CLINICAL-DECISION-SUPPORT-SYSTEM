@@ -30,6 +30,34 @@ export function ConfidenceSlider({ value, onChange, visibleCount, totalCount }: 
                 className="py-2"
             />
 
+            {/* FR-15: Preset buttons for quick threshold selection */}
+            <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onChange(0)}
+                    className="h-7 text-xs px-3"
+                >
+                    Show All
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onChange(80)}
+                    className="h-7 text-xs px-3"
+                >
+                    High Only
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onChange(50)}
+                    className="h-7 text-xs px-3"
+                >
+                    Default
+                </Button>
+            </div>
+
             <div className="flex justify-between items-center top-border pt-2 border-t border-border/50">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                     Showing <strong className="text-gray-900 dark:text-gray-200">{visibleCount}</strong> of {totalCount} detections

@@ -20,6 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Stethoscope, Loader2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { sendOtpEmail } from '@/lib/email';
+import { setAccessToken } from '@/lib/auth';
+import { useAuthStore } from '@/store';
 
 const loginSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
@@ -49,9 +52,38 @@ export default function LoginPage() {
         try {
             const response = await api.post('/auth/login', data);
 
-            // Store user_id in sessionStorage for the OTP verification page
-            if (response.data && response.data.user_id) {
-                sessionStorage.setItem('temp_user_id', response.data.user_id);
+            // ── DEV SHORTCUT: backend returned tokens directly (SKIP_OTP=true) ──
+            if (response.data.skip_otp && response.data.access_token) {
+                const { access_token, user } = response.data;
+
+                setAccessToken(access_token, 900);
+                document.cookie = `access_token=${access_token}; path=/; max-age=86400; samesite=Lax`;
+
+                useAuthStore.getState().setUser({
+                    user_id: user.user_id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    hospital_id: user.hospital_id || undefined,
+                    status: 'Active',
+                });
+
+                window.location.href = '/';
+                return;
+            }
+            // ── END DEV SHORTCUT ──
+
+            const { user_id, otp_code, email } = response.data;
+
+            // Store user_id + email in sessionStorage for the OTP verification page
+            if (user_id) sessionStorage.setItem('temp_user_id', user_id);
+            if (email) sessionStorage.setItem('temp_email', email);
+
+            // Dispatch OTP email via EmailJS (fire-and-forget — don't block redirect)
+            if (otp_code && email) {
+                sendOtpEmail(email, otp_code).catch((err) =>
+                    console.error('Failed to send OTP email:', err)
+                );
             }
 
             router.push('/verify-otp');

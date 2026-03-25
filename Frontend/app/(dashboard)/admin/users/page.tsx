@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { Role } from '@/types';
 import api from '@/lib/api';
+import { sendWelcomeEmail, sendRoleChangeEmail } from '@/lib/email';
 
 interface AppUser {
     id: string;
@@ -84,10 +85,16 @@ export default function UserManagementPage() {
         mutationFn: async (payload: { name: string; email: string; role: string; password: string }) => {
             return api.post('/users/', payload);
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             toast.success('User created successfully');
             queryClient.invalidateQueries({ queryKey: ['admin-users'] });
             setDialogOpen(false);
+            // Fire-and-forget welcome email via EmailJS (non-blocking)
+            sendWelcomeEmail({
+                to_email: variables.email,
+                to_name: variables.name,
+                temp_password: variables.password,
+            }).catch(() => {/* email failure is non-fatal */});
             setNewName('');
             setNewEmail('');
             setNewRole(Role.Doctor);
@@ -113,9 +120,18 @@ export default function UserManagementPage() {
         mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
             return api.patch(`/users/${userId}/role`, { role });
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             toast.success('User role updated');
             queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+            // Notify affected user via EmailJS (fire-and-forget)
+            const affected = users.find(u => u.id === variables.userId);
+            if (affected) {
+                sendRoleChangeEmail({
+                    to_email: affected.email,
+                    to_name: affected.name,
+                    new_role: variables.role,
+                }).catch(() => {/* email failure is non-fatal */});
+            }
         },
         onError: () => toast.error('Failed to update role'),
     });

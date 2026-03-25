@@ -1,4 +1,5 @@
 import io
+import uuid
 import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML

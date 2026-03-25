@@ -28,3 +28,85 @@ pnpm-debug.log*
 secrets/
 config/secrets.yml
 
+# ===========================
+# Python / Backend
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+*.egg
+dist/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.log
+
+# Alembic migrations lock
+alembic/versions/*.pyc
+
+# ===========================
+# Docker
+# ===========================
+.dockerignore
+
+# ===========================
+# Kubernetes Secrets
+# Never commit filled-in secrets.yaml
+# ===========================
+k8s/secrets.filled.yaml
+k8s/*.secret.yaml
+
+# ===========================
+# AI / ML
+# ===========================
+# Large model weight files — store in MinIO or Git LFS instead
+*.pth
+*.pt
+*.onnx
+*.h5
+*.pkl
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ===========================
+# IDEs & Editors
+# ===========================
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+.claude/
+Docs

@@ -9,6 +9,7 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,6 +21,7 @@ import api from '@/lib/api';
 const patientSchema = z.object({
     age: z.coerce.number().positive('Age must be positive').int().max(120),
     sex: z.enum(['Male', 'Female']),
+    symptoms: z.string().optional(),
     visit_date: z.date(),
     consent_given: z.boolean().refine(val => val === true, {
         message: 'You must confirm patient consent',
@@ -57,6 +59,7 @@ export function PatientRegistrationForm({ onSuccess, className = '' }: PatientRe
             const response = await api.post('/patients/', {
                 age: data.age,
                 sex: data.sex,
+                symptoms: data.symptoms || null,
                 consent_recorded: data.consent_given,
                 visit_date: format(data.visit_date, 'yyyy-MM-dd'),
             });
@@ -67,8 +70,9 @@ export function PatientRegistrationForm({ onSuccess, className = '' }: PatientRe
                 patient_id: p.patient_id,
                 age: p.age,
                 sex: p.sex as PatientSex,
-                consent_given: p.consent_recorded,
-                registration_date: p.registered_at || new Date().toISOString(),
+                consent_recorded: p.consent_recorded,
+                registered_at: p.registered_at || new Date().toISOString(),
+                symptoms: p.symptoms || undefined,
             };
 
             toast.success(`Patient registered successfully — ID: ${p.patient_id.substring(0, 8)}...`);
@@ -112,6 +116,17 @@ export function PatientRegistrationForm({ onSuccess, className = '' }: PatientRe
                     </Select>
                     {errors.sex && <p className="text-sm text-red-500">{errors.sex.message}</p>}
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="symptoms">Symptoms / Clinical Notes</Label>
+                <Textarea
+                    id="symptoms"
+                    placeholder="e.g. persistent cough, chest pain, shortness of breath..."
+                    rows={3}
+                    {...register('symptoms')}
+                    className="resize-none"
+                />
             </div>
 
             <div className="space-y-2 flex flex-col">

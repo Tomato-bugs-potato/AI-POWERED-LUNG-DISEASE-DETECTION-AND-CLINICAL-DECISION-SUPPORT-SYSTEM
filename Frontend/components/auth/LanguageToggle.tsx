@@ -11,6 +11,17 @@ import {
 
 export function LanguageToggle() {
     const [lang, setLang] = React.useState('en');
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => setMounted(true), []);
+
+    if (!mounted) {
+        return (
+            <Button variant="ghost" size="sm" aria-label="Toggle language" className="text-xs font-medium px-2">
+                {lang === 'en' ? 'EN' : 'አማ'}
+            </Button>
+        );
+    }
 
     return (
         <DropdownMenu>

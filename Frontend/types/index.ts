@@ -22,8 +22,12 @@ export interface Patient {
     patient_id: string;
     age: number;
     sex: PatientSex;
-    consent_given: boolean;
-    registration_date?: string;
+    consent_recorded: boolean;
+    registered_at?: string;
+    symptoms?: string;
+    total_cases?: number;
+    active_cases?: number;
+    last_visit_date?: string;
 }
 
 export type CaseStatus =
@@ -42,7 +46,7 @@ export interface Image {
     format: 'PNG' | 'JPG' | 'JPEG' | 'DICOM';
 }
 
-export type DiseaseClass = 'Pneumonia' | 'Tuberculosis' | 'Lung Tumor' | 'Normal' | 'Other';
+export type DiseaseClass = 'Pneumonia' | 'Tuberculosis' | 'Lung_Tumor' | 'Normal' | 'Other';
 
 export interface BoundingBox {
     x: number;

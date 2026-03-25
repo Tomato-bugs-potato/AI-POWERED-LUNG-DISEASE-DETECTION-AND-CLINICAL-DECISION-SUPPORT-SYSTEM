@@ -8,56 +8,84 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 import { ImageViewer } from '@/components/radiologist/ImageViewer';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { CaseStatusBadge } from '@/components/shared/CaseStatusBadge';
-import { DiseaseClass, Case } from '@/types';
 import api from '@/lib/api';
 
 const CLASS_COLORS: Record<string, string> = {
     'Pneumonia': 'bg-red-500',
     'Tuberculosis': 'bg-yellow-500',
-    'Lung Tumor': 'bg-orange-500',
+    'Lung_Tumor': 'bg-orange-500',
     'Normal': 'bg-green-500',
     'Other': 'bg-blue-500',
 };
 
 const fetchDiagnosisDetails = async (id: string) => {
     try {
-        const response = await api.get(`/cases/${id}`);
-        const c = response.data;
+        const [caseRes, reviewRes, reportStatusRes] = await Promise.allSettled([
+            api.get(`/cases/${id}`),
+            api.get(`/reviews/${id}`),
+            api.get(`/reports/${id}/status`)
+        ]);
+
+        const c = caseRes.status === 'fulfilled' ? caseRes.value.data : null;
+        if (!c) throw new Error("Case not found");
+
+        const review = reviewRes.status === 'fulfilled' ? reviewRes.value.data : null;
+        const reportStatus = reportStatusRes.status === 'fulfilled' ? reportStatusRes.value.data : null;
+
+        // Fetch image bytes through API proxy (includes JWT auth), create blob URL for canvas
+        let imageUrl = '';
+        const firstImage = c.images?.[0];
+        if (firstImage?.image_id) {
+            try {
+                const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
+                    responseType: 'blob',
+                });
+                imageUrl = URL.createObjectURL(imgRes.data);
+            } catch {
+                imageUrl = firstImage.file_url ? `http://localhost:9000/xray-images/${firstImage.file_url}` : '';
+            }
+        }
+        let inferenceResults = firstImage?.inference_results?.[0]?.predictions || [];
+
         return {
             case_id: c.case_id,
             patient: {
-                id: c.patient_id,
-                name: c.patient_name || `Patient ${c.patient_id}`,
-                age: c.patient_age || 0,
-                sex: c.patient_sex || 'Unknown',
-                symptoms: c.patient_symptoms || 'No symptoms recorded',
+                id: c.patient?.patient_id || c.patient_id,
+                name: c.patient?.name || `Patient ${c.patient_id?.substring(0, 8)}`,
+                age: c.patient?.age || 0,
+                sex: c.patient?.sex || 'Unknown',
+                symptoms: c.patient?.symptoms || 'No symptoms recorded',
             },
             status: c.status || 'Ready_for_Diagnosis',
-            priority: c.priority || 'Non-Critical',
-            image: c.images?.[0] ? { file_url: c.images[0].file_url ? `http://localhost:9000/xray-images/${c.images[0].file_url}` : '' } : { file_url: '' },
-            radiologist_review: c.radiologist_review || {
-                radiologist_name: 'Radiologist',
-                confidence_threshold_applied: 50,
-                notes: '',
-                edited_predictions: [],
+            priority: c.priority || 'Non_Critical',
+            image: { file_url: imageUrl },
+            radiologist_review: {
+                radiologist_name: c.upload_tech?.name || 'Radiology Dept',
+                confidence_threshold_applied: review?.confidence_threshold_applied ?? 50,
+                notes: review?.notes || '',
+                edited_predictions: review?.annotations?.edited_predictions || inferenceResults,
             },
+            reportStatus: reportStatus
         };
     } catch {
-        return {
-            case_id: id,
-            patient: { id: 'Unknown', name: 'Unknown', age: 0, sex: 'Unknown', symptoms: '' },
-            status: 'Ready_for_Diagnosis',
-            priority: 'Non-Critical',
-            image: { file_url: '' },
-            radiologist_review: { radiologist_name: 'Unknown', confidence_threshold_applied: 50, notes: '', edited_predictions: [] },
-        };
+        return null;
     }
 };
 
@@ -66,7 +94,7 @@ export default function DiagnosisPage() {
     const router = useRouter();
     const caseId = params.caseId as string;
 
-    const { data: caseData, isLoading } = useQuery({
+    const { data: caseData, isLoading, refetch } = useQuery({
         queryKey: ['diagnosis-case', caseId],
         queryFn: () => fetchDiagnosisDetails(caseId),
     });
@@ -122,7 +150,7 @@ export default function DiagnosisPage() {
     return (
         <div className="flex flex-col min-h-[calc(100vh-6rem)] -mt-4">
             {/* Header Bar */}
-            <div className="flex items-center justify-between pb-4 shrink-0">
+            <div className="flex items-center justify-between pb-4 shrink-0 flex-wrap gap-3">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => router.push('/doctor/cases')}>
                         <ArrowLeft className="h-5 w-5" />
@@ -137,158 +165,186 @@ export default function DiagnosisPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                     <Button variant="outline" onClick={handleSaveDraft}>
                         <Save className="mr-2 h-4 w-4" /> Save Draft
                     </Button>
-                    <Button onClick={handleFinalize} className="bg-green-600 hover:bg-green-700 text-white">
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Finalize Diagnosis
-                    </Button>
+                    {caseData.reportStatus?.status === 'ready' ? (
+                        <Button
+                            variant="outline"
+                            onClick={() => router.push(`/doctor/reports/${caseId}`)}
+                        >
+                            <FileText className="mr-2 h-4 w-4" /> View Report
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            onClick={async () => {
+                                try {
+                                    await api.post(`/reports/${caseId}/regenerate`);
+                                    toast.success('Report generation started. Navigating to report preview...');
+                                    // Navigate to report page — it will poll/show loading until ready
+                                    setTimeout(() => router.push(`/doctor/reports/${caseId}`), 2000);
+                                } catch {
+                                    toast.error('Failed to generate report');
+                                }
+                            }}
+                        >
+                            <FileText className="mr-2 h-4 w-4" /> Generate Report
+                        </Button>
+                    )}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button className="bg-green-600 hover:bg-green-700 text-white">
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Finalize Diagnosis
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Diagnosis Submission</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to submit this diagnosis? This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleFinalize}>Confirm</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 
-            {/* Main Split Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6">
+            {/* 3-Column Layout: Patient Info | X-ray Viewer | Diagnosis Form */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] xl:grid-cols-[280px_1fr_360px] gap-4 min-h-0">
 
-                {/* Left Panel: Image Viewer (60%) */}
-                <div className="lg:w-[60%] flex flex-col h-[60vh] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-4 bg-zinc-950 rounded-lg overflow-hidden border border-border">
-                    <div className="h-12 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 text-sm shrink-0">
-                        <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION (READ-ONLY)</span>
-                        <span className="text-zinc-500 text-xs">Annotations provided by {caseData.radiologist_review.radiologist_name}</span>
+                {/* Column 1: Patient Information */}
+                <aside className="flex flex-col gap-4 overflow-y-auto lg:max-h-[calc(100vh-8rem)] lg:sticky lg:top-4">
+                    <div className="border rounded-lg bg-white dark:bg-zinc-900 p-4 space-y-4">
+                        <h3 className="font-semibold text-base flex items-center gap-2">
+                            <UserIcon className="h-4 w-4 text-gray-500" />
+                            Patient Profile
+                        </h3>
+                        <div className="space-y-3 text-sm">
+                            <div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-0.5">Name</p>
+                                <p className="font-semibold text-gray-900 dark:text-gray-100">{caseData.patient.name}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-0.5">Patient ID</p>
+                                <p className="font-mono text-gray-900 dark:text-gray-100 text-xs">{caseData.patient.id}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-0.5">Demographics</p>
+                                <p className="text-gray-900 dark:text-gray-100">{caseData.patient.age} yrs, {caseData.patient.sex === 'M' ? 'Male' : 'Female'}</p>
+                            </div>
+                            <div>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-0.5">Reported Symptoms</p>
+                                <p className="text-gray-900 dark:text-gray-100 italic text-xs leading-relaxed">{caseData.patient.symptoms}</p>
+                            </div>
+                        </div>
                     </div>
 
+                    {/* Radiologist Findings */}
+                    <div className="border rounded-lg bg-white dark:bg-zinc-900 p-4 space-y-3">
+                        <h3 className="font-semibold text-base">Radiologist Findings</h3>
+                        <div className="space-y-2">
+                            {visibleAnnotations.map((ann: any, index: number) => (
+                                <div key={ann.id || `ann-${index}`} className="p-2 border rounded-md flex items-center justify-between bg-card text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full shrink-0 ${CLASS_COLORS[ann.disease_class] || CLASS_COLORS['Other']}`} />
+                                        <span className="font-medium text-xs">{ann.disease_class}</span>
+                                    </div>
+                                    <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                        {(ann.confidence_score * 100).toFixed(0)}%
+                                    </span>
+                                </div>
+                            ))}
+                            {visibleAnnotations.length === 0 && (
+                                <p className="text-xs text-gray-500 italic">No significant findings.</p>
+                            )}
+                        </div>
+
+                        {caseData.radiologist_review.notes && (
+                            <div className="p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg mt-2">
+                                <p className="text-xs font-semibold text-blue-800 dark:text-blue-400 uppercase tracking-wider mb-1">Notes</p>
+                                <div
+                                    className="text-xs text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: caseData.radiologist_review.notes }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </aside>
+
+                {/* Column 2: X-ray Image Viewer */}
+                <div className="flex flex-col h-[60vh] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-4 bg-zinc-950 rounded-lg overflow-hidden border border-border">
+                    <div className="h-10 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0">
+                        <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION (READ-ONLY)</span>
+                        <span className="text-zinc-500 text-xs hidden sm:block">By {caseData.radiologist_review.radiologist_name}</span>
+                    </div>
                     <div className="flex-1 w-full bg-black relative">
                         <ImageViewer
                             imageUrl={caseData.image.file_url}
                             annotations={visibleAnnotations}
-                            mode="view" // Doctor only views annotations
+                            mode="view"
                             showAnnotations={true}
                             showScores={true}
                         />
                     </div>
                 </div>
 
-                {/* Right Panel: Tools and Data (40%) */}
-                <div className="lg:w-[40%] flex flex-col space-y-4">
-                    <div className="flex-1 border rounded-lg bg-white dark:bg-zinc-900 overflow-y-auto">
-                        <div className="p-4 space-y-6">
+                {/* Column 3: Final Diagnosis Form */}
+                <div className="flex flex-col overflow-y-auto lg:max-h-[calc(100vh-8rem)] lg:sticky lg:top-4">
+                    <div className="border rounded-lg bg-white dark:bg-zinc-900 p-4 space-y-4 flex-1">
+                        <h3 className="font-semibold text-base flex items-center gap-2">
+                            <Stethoscope className="h-4 w-4 text-gray-500" />
+                            Final Diagnosis
+                        </h3>
 
-                            {/* Patient Information */}
-                            <div>
-                                <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                                    <UserIcon className="h-5 w-5 text-gray-500" />
-                                    Patient Profile
-                                </h3>
-                                <Card className="bg-gray-50/50 dark:bg-zinc-900/50 shadow-none border-dashed">
-                                    <CardContent className="p-4 grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-1">Name</p>
-                                            <p className="font-semibold text-gray-900 dark:text-gray-100">{caseData.patient.name}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-1">Patient ID</p>
-                                            <p className="font-mono text-gray-900 dark:text-gray-100">{caseData.patient.id}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-1">Demographics</p>
-                                            <p className="text-gray-900 dark:text-gray-100">{caseData.patient.age} yrs, {caseData.patient.sex === 'M' ? 'Male' : 'Female'}</p>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <p className="text-gray-500 dark:text-gray-400 font-medium text-xs uppercase mb-1">Reported Symptoms</p>
-                                            <p className="text-gray-900 dark:text-gray-100 italic">{caseData.patient.symptoms}</p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Final Classification <span className="text-red-500">*</span>
+                                </label>
+                                <Select value={finalDiagnosis} onValueChange={setFinalDiagnosis}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select primary disease..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Pneumonia">Pneumonia</SelectItem>
+                                        <SelectItem value="Tuberculosis">Tuberculosis</SelectItem>
+                                        <SelectItem value="Lung_Tumor">Lung Tumor</SelectItem>
+                                        <SelectItem value="Normal">Normal</SelectItem>
+                                        <SelectItem value="Other">Other / Multiple</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Follow-up Urgency</label>
+                                <Select value={urgency} onValueChange={setUrgency}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select urgency..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Non_Critical">Routine Care</SelectItem>
+                                        <SelectItem value="Critical">Immediate Protocol / Critical</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
 
                             <Separator />
 
-                            {/* Radiologist Analysis */}
-                            <div>
-                                <h3 className="font-semibold text-lg mb-3">Radiologist Analysis</h3>
-
-                                <div className="space-y-3 mb-4">
-                                    {visibleAnnotations.map((ann: any) => (
-                                        <div key={ann.id} className="p-2 border rounded-md flex items-center justify-between bg-card text-sm">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${CLASS_COLORS[ann.disease_class] || CLASS_COLORS['Other']}`} />
-                                                <span className="font-medium">{ann.disease_class}</span>
-                                            </div>
-                                            <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                                {(ann.confidence_score * 100).toFixed(1)}% Conf.
-                                            </span>
-                                        </div>
-                                    ))}
-                                    {visibleAnnotations.length === 0 && (
-                                        <p className="text-sm text-gray-500 italic">No significant findings reported in imaging.</p>
-                                    )}
-                                </div>
-
-                                {caseData.radiologist_review.notes && (
-                                    <div className="p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg">
-                                        <p className="text-xs font-semibold text-blue-800 dark:text-blue-400 uppercase tracking-wider mb-2">Radiologist's Notes</p>
-                                        <div
-                                            className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none"
-                                            dangerouslySetInnerHTML={{ __html: caseData.radiologist_review.notes }}
-                                        />
-                                    </div>
-                                )}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Diagnostic Notes & Recommendations</label>
+                                <RichTextEditor
+                                    value={doctorNotes}
+                                    onChange={setDoctorNotes}
+                                    autoSave={false}
+                                />
+                                <p className="text-xs text-muted-foreground">Included in the final patient report.</p>
                             </div>
-
-                            <Separator />
-
-                            {/* Final Diagnosis Form */}
-                            <div className="space-y-4 pb-4">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                    <Stethoscope className="h-5 w-5 text-gray-500" />
-                                    Final Diagnosis
-                                </h3>
-
-                                <div className="space-y-3 p-4 border border-border bg-card rounded-lg shadow-sm">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Final Classification <span className="text-red-500">*</span></label>
-                                            <Select value={finalDiagnosis} onValueChange={setFinalDiagnosis}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select primary disease..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Pneumonia">Pneumonia</SelectItem>
-                                                    <SelectItem value="Tuberculosis">Tuberculosis</SelectItem>
-                                                    <SelectItem value="Lung Tumor">Lung Tumor</SelectItem>
-                                                    <SelectItem value="Normal">Normal</SelectItem>
-                                                    <SelectItem value="Other">Other / Multiple</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium">Follow-up Urgency</label>
-                                            <Select value={urgency} onValueChange={setUrgency}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select urgency..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Non_Critical">Routine Care</SelectItem>
-                                                    <SelectItem value="High">Urgent Review</SelectItem>
-                                                    <SelectItem value="Critical">Immediate Protocol / Critical</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2 pt-2">
-                                        <label className="text-sm font-medium">Diagnostic Notes & Recommendations</label>
-                                        <RichTextEditor
-                                            value={doctorNotes}
-                                            onChange={setDoctorNotes}
-                                            autoSave={false}
-                                        />
-                                        <p className="text-xs text-muted-foreground mt-1">These notes will be included in the final printable patient report.</p>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
                 </div>

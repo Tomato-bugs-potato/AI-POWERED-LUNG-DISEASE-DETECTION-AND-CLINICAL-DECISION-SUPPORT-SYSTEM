@@ -15,21 +15,33 @@ import { useAuthStore } from '@/store';
 import { Case } from '@/types';
 import api from '@/lib/api';
 
-const fetchPendingDiagnosis = async (): Promise<Case[]> => {
+const fetchDoctorDashboardData = async () => {
     try {
-        const response = await api.get('/cases', { params: { status: 'Ready_for_Diagnosis' } });
+        const response = await api.get('/cases', { params: { limit: 100 } });
         const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
-        return data.map((c: any) => ({
+
+        const allCases = data.map((c: any) => ({
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status,
             priority: c.priority || 'Non_Critical',
-            upload_date: c.created_at || c.updated_at || new Date().toISOString(),
-            image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
-            radiologist_review: c.radiologist_review || undefined,
+            updated_at: c.updated_at || c.created_at || new Date().toISOString(),
         }));
+
+        const pending = allCases
+            .filter((c: any) => c.status === 'Ready_for_Diagnosis' || c.status === 'In_Review')
+            .sort((a: any, b: any) => {
+                // Critical cases first
+                if (a.priority === 'Critical' && b.priority !== 'Critical') return -1;
+                if (a.priority !== 'Critical' && b.priority === 'Critical') return 1;
+                // Then newest first
+                return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+            });
+        const completed = allCases.filter((c: any) => c.status === 'Diagnosed' || c.status === 'Completed');
+
+        return { pending, completed, total: allCases.length };
     } catch {
-        return [];
+        return { pending: [], completed: [], total: 0 };
     }
 };
 
@@ -38,10 +50,13 @@ export default function DoctorDashboard() {
     const { user } = useAuthStore();
     const [searchQuery, setSearchQuery] = React.useState('');
 
-    const { data: cases, isLoading } = useQuery({
-        queryKey: ['doctor-pending-cases'],
-        queryFn: fetchPendingDiagnosis,
+    const { data, isLoading } = useQuery({
+        queryKey: ['doctor-dashboard-data'],
+        queryFn: fetchDoctorDashboardData,
     });
+
+    const pendingCases = data?.pending || [];
+    const completedCases = data?.completed || [];
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,9 +93,9 @@ export default function DoctorDashboard() {
                         <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : (cases?.length || 0)}</div>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : pendingCases.length}</div>
                         <p className="text-xs text-red-600/80 font-medium mt-1">
-                            {cases?.filter(c => c.priority === 'Critical').length || 0} critical cases
+                            {pendingCases.filter((c: any) => c.priority === 'Critical').length} critical cases
                         </p>
                     </CardContent>
                 </Card>
@@ -90,8 +105,8 @@ export default function DoctorDashboard() {
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">14</div>
-                        <p className="text-xs text-gray-500 mt-1">Average time: 4m 30s</p>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : completedCases.length}</div>
+                        <p className="text-xs text-gray-500 mt-1">Total completed cases</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -100,8 +115,8 @@ export default function DoctorDashboard() {
                         <TrendingUp className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">126</div>
-                        <p className="text-xs text-blue-600 font-medium mt-1">+12% from last week</p>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : data?.total || 0}</div>
+                        <p className="text-xs text-blue-600 font-medium mt-1">Total cases in system</p>
                     </CardContent>
                 </Card>
             </div>
@@ -115,7 +130,7 @@ export default function DoctorDashboard() {
                         <div className="flex justify-center items-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         </div>
-                    ) : cases && cases.length > 0 ? (
+                    ) : pendingCases && pendingCases.length > 0 ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-900/50 border-b border-border">
@@ -128,15 +143,15 @@ export default function DoctorDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
-                                    {cases.map((c) => (
+                                    {pendingCases.map((c: any) => (
                                         <tr
                                             key={c.case_id}
                                             className={`hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors group ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
                                         >
-                                            <td className="px-4 py-4 font-medium text-gray-900 dark:text-gray-100">{c.patient_id}</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">Dr. M. Abebe</td>
+                                            <td className="px-4 py-4 font-medium text-gray-900 dark:text-gray-100">{c.patient_id.substring(0, 8)}...</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">Radiology Dept</td>
                                             <td className="px-4 py-4 text-gray-500 dark:text-gray-400">
-                                                {c.radiologist_review ? format(new Date(c.radiologist_review.reviewed_at), 'h:mm a (MMM d)') : '-'}
+                                                {format(new Date(c.updated_at), 'h:mm a (MMM d)')}
                                             </td>
                                             <td className="px-4 py-4">
                                                 {c.priority === 'Critical' ? (

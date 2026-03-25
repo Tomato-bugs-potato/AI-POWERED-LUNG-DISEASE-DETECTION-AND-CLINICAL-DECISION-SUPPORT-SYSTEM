@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { formatDateLocale } from '@/lib/date';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
 
@@ -189,7 +190,7 @@ export default function DiagnosisQueuePage() {
                                                     <div className="text-xs font-normal text-muted-foreground">{c.case_id}</div>
                                                 </td>
                                                 <td className="px-4 py-4 text-gray-500">
-                                                    {format(new Date(c.upload_date), 'MMM d, yyyy • h:mm a')}
+                                                    {formatDateLocale(c.upload_date)}
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <CaseStatusBadge status={c.status} />

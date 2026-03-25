@@ -20,6 +20,7 @@ import api from '@/lib/api';
 import { setAccessToken } from '@/lib/auth';
 import { useAuthStore } from '@/store';
 import { toast } from 'sonner';
+import { sendOtpEmail } from '@/lib/email';
 
 export default function VerifyOtpPage() {
     const router = useRouter();
@@ -109,7 +110,15 @@ export default function VerifyOtpPage() {
                 return;
             }
 
-            await api.post('/auth/resend-otp', { user_id: userId });
+            const response = await api.post('/auth/resend-otp', { user_id: userId });
+            const { otp_code, email } = response.data;
+
+            // Re-dispatch OTP via EmailJS
+            if (otp_code && email) {
+                sendOtpEmail(email, otp_code).catch((err) =>
+                    console.error('Failed to resend OTP email:', err)
+                );
+            }
 
             setTimeLeft(300); // Reset timer to 5 minutes
             setAttemptsAllowed(3);

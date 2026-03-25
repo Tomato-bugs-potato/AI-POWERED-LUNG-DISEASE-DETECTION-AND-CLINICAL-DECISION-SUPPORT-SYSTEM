@@ -12,7 +12,7 @@ from app.schemas.case import CaseResponse, CaseDetailResponse, CaseCreate, CaseS
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.core.rbac import require_roles
-from app.db.base import Role, AuditAction, CaseStatus
+from app.db.base import Role, AuditAction, CaseStatus, UrgencyLevel
 from app.core.audit import log_action
 
 router = APIRouter()
@@ -37,6 +37,7 @@ async def create_case(
         upload_tech_id=current_user.user_id,
         visit_date=case_in.visit_date,
         status=CaseStatus.Pending_Review,
+        priority=UrgencyLevel.Non_Critical,
         linked_case_id=case_in.linked_case_id
     )
     
@@ -61,13 +62,24 @@ async def list_cases(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_clinical_staff)
 ):
-    stmt = select(Case).offset(skip).limit(limit)
+    from sqlalchemy import case as sql_case, desc
+
+    stmt = select(Case)
     
     if status_filter:
         stmt = stmt.where(Case.status == status_filter)
     if patient_id:
         stmt = stmt.where(Case.patient_id == patient_id)
-        
+
+    # Order: Critical cases first, then newest first
+    stmt = stmt.order_by(
+        sql_case(
+            (Case.priority == UrgencyLevel.Critical, 0),
+            else_=1,
+        ),
+        desc(Case.created_at),
+    ).offset(skip).limit(limit)
+
     result = await db.execute(stmt)
     return result.scalars().all()
 

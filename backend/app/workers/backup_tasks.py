@@ -44,9 +44,42 @@ def daily_database_backup():
 @shared_task(name="app.workers.backup_tasks.session_cleanup_job")
 def session_cleanup_job():
     """
-    Periodic task to prune expired refresh tokens from the DB.
+    Periodic task to prune expired refresh tokens from the DB (FR-04).
     """
     print("Running hourly session cleanup...")
-    # Executing raw SQL mapping for fast delete or sync wrap SQLAlchemy session
-    # delete from sessions where expires_at < now();
-    print("✅ Completed mock session cleanup.")
+    from sqlalchemy import create_engine, text
+    sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+    engine = create_engine(sync_url)
+    with engine.connect() as conn:
+        result = conn.execute(text("DELETE FROM sessions WHERE expires_at < NOW()"))
+        conn.commit()
+        print(f"Cleaned up {result.rowcount} expired sessions.")
+    engine.dispose()
+    print("Completed session cleanup.")
+
+
+@shared_task(name="app.workers.backup_tasks.delete_minio_files")
+def delete_minio_files(file_list: list):
+    """
+    NFR-27: Delete files from MinIO for right-to-erasure compliance.
+    file_list: list of (bucket_type, object_name) tuples
+    """
+    from minio import Minio
+
+    client = Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_SECURE,
+    )
+
+    deleted = 0
+    for bucket_type, object_name in file_list:
+        bucket = settings.MINIO_BUCKET_IMAGES if bucket_type == "images" else settings.MINIO_BUCKET_REPORTS
+        try:
+            client.remove_object(bucket, object_name)
+            deleted += 1
+        except Exception as e:
+            print(f"Failed to delete {bucket}/{object_name}: {e}")
+
+    print(f"Deleted {deleted}/{len(file_list)} files from MinIO.")

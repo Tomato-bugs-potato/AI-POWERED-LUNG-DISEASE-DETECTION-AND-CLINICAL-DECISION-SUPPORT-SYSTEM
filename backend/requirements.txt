@@ -19,7 +19,6 @@ pydicom
 cryptography
 reportlab
 weasyprint
-sendgrid
 pytest
 pytest-asyncio
 structlog

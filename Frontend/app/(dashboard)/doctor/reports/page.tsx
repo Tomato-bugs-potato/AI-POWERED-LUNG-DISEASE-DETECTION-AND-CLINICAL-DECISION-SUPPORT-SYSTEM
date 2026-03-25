@@ -2,9 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
-import { Search, FileText, Download, Printer, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
+import { Search, FileText, Download, Printer, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileQuestion, FileDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ const fetchReports = async (): Promise<ReportMock[]> => {
 };
 
 export default function PastReportsPage() {
+    const router = useRouter();
     const [page, setPage] = React.useState(1);
     const [search, setSearch] = React.useState('');
     const [diagnosisFilter, setDiagnosisFilter] = React.useState<string>('all');
@@ -69,12 +71,51 @@ export default function PastReportsPage() {
     const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
     const paginatedReports = filteredReports.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
-    const handlePrint = (id: string) => {
-        toast.success(`Sent report ${id} to printer`);
+    const handlePrint = (caseId: string) => {
+        // Navigate to report preview which has a print-ready layout
+        router.push(`/doctor/reports/${caseId}`);
     };
 
-    const handleDownload = (id: string) => {
-        toast.success(`Downloading report ${id}.pdf`);
+    const handleDownload = async (caseId: string) => {
+        try {
+            const { data } = await api.get(`/reports/${caseId}`);
+            if (data.pdf_url) {
+                // Fetch PDF as blob to trigger proper download
+                const pdfRes = await fetch(data.pdf_url);
+                if (!pdfRes.ok) throw new Error('PDF fetch failed');
+                const blob = await pdfRes.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `report-${caseId}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success('Report downloaded');
+            } else {
+                toast.error('Report PDF is not available yet');
+            }
+        } catch {
+            toast.error('Failed to download report');
+        }
+    };
+
+    const handleExportCSV = async () => {
+        try {
+            const response = await api.get('/reports/export/csv', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'reports.csv');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Reports exported successfully');
+        } catch {
+            toast.error('Failed to export reports');
+        }
     };
 
     return (
@@ -87,6 +128,9 @@ export default function PastReportsPage() {
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">View, search, print, and securely download finalized patient reports.</p>
                 </div>
+                <Button variant="outline" onClick={handleExportCSV} aria-label="Export all reports as CSV file">
+                    <FileDown className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
             </div>
 
             <Card>
@@ -206,10 +250,13 @@ export default function PastReportsPage() {
                                                 </td>
                                                 <td className="px-4 py-4 text-right">
                                                     <div className="flex justify-end gap-2">
-                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.id)} className="h-8 w-8 text-gray-500 hover:text-gray-900" title="Print">
+                                                        <Button asChild variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800">
+                                                            <Link href={`/doctor/reports/${r.case_id}`}>View</Link>
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.case_id)} className="h-8 w-8 text-gray-500 hover:text-gray-900" title="Print">
                                                             <Printer className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.id)} className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50" title="Download PDF">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.case_id)} className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50" title="Download PDF">
                                                             <Download className="h-4 w-4" />
                                                         </Button>
                                                     </div>

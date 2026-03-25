@@ -15,7 +15,8 @@ import {
     FileText,
     Users,
     ShieldAlert,
-    Hospital
+    Hospital,
+    HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,8 @@ import { useAuthStore, useUIStore } from '@/store';
 import { clearTokens } from '@/lib/auth';
 import { Role } from '@/types';
 import api from '@/lib/api';
+import { IdleTimeoutProvider } from '@/components/shared/IdleTimeoutProvider';
+import { OnboardingTour } from '@/components/shared/OnboardingTour';
 
 type NavItem = {
     name: string;
@@ -42,6 +45,7 @@ const getNavItems = (role?: string): NavItem[] => {
                 { name: 'Upload X-ray', href: '/radiologist/upload', icon: Upload },
                 { name: 'Cases Queue', href: '/radiologist/cases', icon: ListTodo, showBadge: true },
                 { name: 'Profile', href: '/radiologist/profile', icon: UserIcon },
+                { name: 'Help', href: '/help', icon: HelpCircle },
             ];
         case Role.Doctor:
             return [
@@ -50,12 +54,14 @@ const getNavItems = (role?: string): NavItem[] => {
                 { name: 'Patients / Search', href: '/doctor/patients', icon: Search },
                 { name: 'Past Reports', href: '/doctor/reports', icon: FileText },
                 { name: 'Profile', href: '/doctor/profile', icon: UserIcon },
+                { name: 'Help', href: '/help', icon: HelpCircle },
             ];
         case Role.Admin:
             return [
                 { name: 'Dashboard', href: '/admin', icon: Home },
                 { name: 'User Management', href: '/admin/users', icon: Users },
                 { name: 'Audit Logs', href: '/admin/logs', icon: ShieldAlert },
+                { name: 'Help', href: '/help', icon: HelpCircle },
             ];
         default:
             return [];
@@ -215,7 +221,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Page Content */}
                 <main className="flex-1 overflow-auto bg-gray-50 dark:bg-zinc-950">
                     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-full">
-                        {children}
+                        <IdleTimeoutProvider>
+                            <OnboardingTour />
+                            {children}
+                        </IdleTimeoutProvider>
                     </div>
                 </main>
             </div>

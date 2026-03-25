@@ -36,6 +36,7 @@ export default function UploadXrayPage() {
 
     // Consent State for Existing Patient
     const [existingPatientConsent, setExistingPatientConsent] = React.useState(false);
+    const [isNewRegistration, setIsNewRegistration] = React.useState(false);
 
     const validateFile = (selectedFile: File): boolean => {
         setFileError(null);
@@ -109,8 +110,9 @@ export default function UploadXrayPage() {
                 patient_id: p.patient_id,
                 age: p.age,
                 sex: p.sex,
-                consent_given: p.consent_given ?? true,
-                registration_date: p.registration_date || p.created_at,
+                consent_recorded: p.consent_recorded ?? true,
+                registered_at: p.registered_at || p.created_at,
+                symptoms: p.symptoms,
             })) as Patient[]);
         } catch {
             setSearchResults([]);
@@ -119,11 +121,66 @@ export default function UploadXrayPage() {
         setIsSearching(false);
     };
 
-    const handleSubmit = async () => {
+    // Duplicate confirmation state
+    const [showDuplicateConfirm, setShowDuplicateConfirm] = React.useState(false);
+    const [pendingCaseId, setPendingCaseId] = React.useState<string | null>(null);
+
+    const uploadImageWithRetry = async (
+        caseId: string,
+        fileToUpload: File,
+        allowDuplicate: boolean = false,
+        maxRetries: number = 3
+    ): Promise<void> => {
+        let lastError: any = null;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const formData = new FormData();
+                formData.append('file', fileToUpload);
+                formData.append('case_id', caseId);
+                if (allowDuplicate) {
+                    formData.append('allow_duplicate', 'true');
+                }
+
+                await api.post('/images/upload', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    onUploadProgress: (progressEvent) => {
+                        const progress = progressEvent.total ?
+                            Math.round((progressEvent.loaded * 100) / progressEvent.total) : 50;
+                        setUploadProgress(Math.min(progress, 95));
+                    },
+                });
+
+                return; // Success, exit retry loop
+            } catch (err: any) {
+                lastError = err;
+
+                // Handle 409 duplicate response
+                if (err?.response?.status === 409) {
+                    throw err; // Don't retry duplicates, handle separately
+                }
+
+                // Only retry on network errors (no response from server)
+                const isNetworkError = !err?.response;
+                if (!isNetworkError || attempt === maxRetries) {
+                    throw err;
+                }
+
+                const delayMs = attempt * 1000; // 1s, 2s, 3s
+                toast.warning(`Upload failed. Retrying (${attempt}/${maxRetries}) in ${attempt}s...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+
+        throw lastError;
+    };
+
+    const handleSubmit = async (allowDuplicate: boolean = false) => {
         if (!file || !selectedPatient) return;
 
         setIsUploading(true);
         setUploadProgress(0);
+        setShowDuplicateConfirm(false);
 
         const interval = setInterval(() => {
             setUploadProgress(prev => {
@@ -136,38 +193,44 @@ export default function UploadXrayPage() {
         }, 100);
 
         try {
-            const caseResponse = await api.post('/cases/', {
-                patient_id: selectedPatient.patient_id,
-                visit_date: new Date().toISOString().split('T')[0]
-            });
+            let caseId = pendingCaseId;
 
-            const newCaseId = caseResponse.data.case_id;
+            // Create case only if we don't already have one (from a previous duplicate attempt)
+            if (!caseId) {
+                const caseResponse = await api.post('/cases/', {
+                    patient_id: selectedPatient.patient_id,
+                    visit_date: new Date().toISOString().split('T')[0]
+                });
+                caseId = caseResponse.data.case_id;
+                setPendingCaseId(caseId);
+            }
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('case_id', newCaseId);
-
-            await api.post('/images/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                onUploadProgress: (progressEvent) => {
-                    const progress = progressEvent.total ?
-                        Math.round((progressEvent.loaded * 100) / progressEvent.total) : 50;
-                    setUploadProgress(Math.min(progress, 95));
-                },
-            });
+            await uploadImageWithRetry(caseId!, file, allowDuplicate);
 
             clearInterval(interval);
             setUploadProgress(100);
+            setPendingCaseId(null);
 
             toast.success('Upload complete! Case is ready for review.');
 
             setTimeout(() => {
-                router.push(`/radiologist/cases/${newCaseId}`);
+                router.push(`/radiologist/cases/${caseId}`);
             }, 500);
 
-        } catch {
+        } catch (err: any) {
             clearInterval(interval);
+
+            // Handle 409 duplicate: show confirmation dialog
+            if (err?.response?.status === 409) {
+                setIsUploading(false);
+                setUploadProgress(0);
+                setShowDuplicateConfirm(true);
+                toast.warning('A duplicate image was detected. Please confirm if you want to proceed.');
+                return;
+            }
+
             setIsUploading(false);
+            setPendingCaseId(null);
             setFileError('File appears corrupted or upload failed. Please try another.');
         }
     };
@@ -218,7 +281,7 @@ export default function UploadXrayPage() {
                                                         <div
                                                             key={p.patient_id}
                                                             className="flex justify-between items-center p-3 border-b border-border last:border-0 hover:bg-muted cursor-pointer"
-                                                            onClick={() => setSelectedPatient(p)}
+                                                            onClick={() => { setSelectedPatient(p); setIsNewRegistration(false); }}
                                                         >
                                                             <div className="flex items-center gap-3">
                                                                 <div className="bg-blue-100 text-blue-700 p-2 rounded-full dark:bg-blue-900 dark:text-blue-300">
@@ -242,7 +305,7 @@ export default function UploadXrayPage() {
                                                     variant="ghost"
                                                     size="icon"
                                                     className="absolute top-2 right-2 h-6 w-6 rounded-full"
-                                                    onClick={() => setSelectedPatient(null)}
+                                                    onClick={() => { setSelectedPatient(null); setIsNewRegistration(false); }}
                                                 >
                                                     <X className="h-3 w-3" />
                                                 </Button>
@@ -253,7 +316,7 @@ export default function UploadXrayPage() {
                                                     <div>
                                                         <h3 className="font-medium text-blue-900 dark:text-blue-100">{selectedPatient.patient_id}</h3>
                                                         <p className="text-sm text-blue-700 dark:text-blue-300">
-                                                            {selectedPatient.age} yrs • {selectedPatient.sex} • Reg: {selectedPatient.registration_date ? format(new Date(selectedPatient.registration_date), 'MMM yyyy') : 'Unknown'}
+                                                            {selectedPatient.age} yrs • {selectedPatient.sex} • Reg: {selectedPatient.registered_at ? format(new Date(selectedPatient.registered_at), 'MMM yyyy') : 'Unknown'}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -283,7 +346,7 @@ export default function UploadXrayPage() {
                                 <CardContent>
                                     {!selectedPatient ? (
                                         <PatientRegistrationForm
-                                            onSuccess={(patient) => setSelectedPatient(patient)}
+                                            onSuccess={(patient) => { setSelectedPatient(patient); setIsNewRegistration(true); }}
                                         />
                                     ) : (
                                         <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20 p-4 relative">
@@ -291,7 +354,7 @@ export default function UploadXrayPage() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="absolute top-2 right-2 h-6 w-6 rounded-full text-green-700 hover:text-green-900 hover:bg-green-100"
-                                                onClick={() => setSelectedPatient(null)}
+                                                onClick={() => { setSelectedPatient(null); setIsNewRegistration(false); }}
                                             >
                                                 <X className="h-3 w-3" />
                                             </Button>
@@ -418,6 +481,34 @@ export default function UploadXrayPage() {
                                 </Alert>
                             )}
 
+                            {showDuplicateConfirm && (
+                                <Alert className="bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-900">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                                    <AlertTitle className="text-amber-800 dark:text-amber-300">Duplicate Image Detected</AlertTitle>
+                                    <AlertDescription className="text-amber-700 dark:text-amber-400">
+                                        The server detected this image already exists. Do you want to upload it anyway?
+                                    </AlertDescription>
+                                    <div className="mt-3 flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="bg-white text-amber-800 border-amber-300 hover:bg-amber-100"
+                                            onClick={() => handleSubmit(true)}
+                                        >
+                                            Yes, upload anyway
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-amber-800 hover:bg-amber-200"
+                                            onClick={() => { setShowDuplicateConfirm(false); setPendingCaseId(null); }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </Alert>
+                            )}
+
                         </CardContent>
                         <CardFooter className="pt-2 border-t mt-auto">
                             <Button
@@ -427,9 +518,9 @@ export default function UploadXrayPage() {
                                     !file ||
                                     !selectedPatient ||
                                     isUploading ||
-                                    (!!selectedPatient.registration_date && !existingPatientConsent)
+                                    (!isNewRegistration && !existingPatientConsent)
                                 }
-                                onClick={handleSubmit}
+                                onClick={() => handleSubmit(false)}
                             >
                                 {isUploading ? (
                                     <>
