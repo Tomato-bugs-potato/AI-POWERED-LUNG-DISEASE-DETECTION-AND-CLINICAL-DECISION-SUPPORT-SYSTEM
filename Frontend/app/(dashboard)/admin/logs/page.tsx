@@ -86,7 +86,7 @@ export default function AuditLogsPage() {
                                 <Filter className="mr-2 h-4 w-4 text-gray-500" />
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className='bg-white'>
                                 <SelectItem value="all">All Events</SelectItem>
                                 <SelectItem value="Success">Success Only</SelectItem>
                                 <SelectItem value="Failure">Failures Only</SelectItem>

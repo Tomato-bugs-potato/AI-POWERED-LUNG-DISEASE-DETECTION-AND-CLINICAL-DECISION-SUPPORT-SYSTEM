@@ -287,7 +287,7 @@ export function OnboardingTour() {
       }}
     >
       <DialogContent
-        className="sm:max-w-md"
+        className="sm:max-w-md bg-white"
         aria-label="Onboarding tour"
         showCloseButton={false}
       >

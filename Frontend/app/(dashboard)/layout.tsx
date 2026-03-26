@@ -15,13 +15,13 @@ import {
     FileText,
     Users,
     ShieldAlert,
-    Hospital,
-    HelpCircle
+    HelpCircle,
+    ChevronLeft,
+ 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LanguageToggle } from '@/components/auth/LanguageToggle';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuthStore, useUIStore } from '@/store';
 import { clearTokens } from '@/lib/auth';
 import { Role } from '@/types';
@@ -74,12 +74,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { user, logout } = useAuthStore();
     const { sidebarOpen, setSidebarOpen } = useUIStore();
     const [mounted, setMounted] = React.useState(false);
+    const [isDesktopExpanded, setIsDesktopExpanded] = React.useState(false);
 
     React.useEffect(() => {
         setMounted(true);
     }, []);
 
-    // Fetch real critical count from cases API
     const [criticalCount, setCriticalCount] = React.useState(0);
     React.useEffect(() => {
         api.get('/cases', { params: { priority: 'Critical' } })
@@ -96,131 +96,138 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const handleLogout = () => {
         logout();
         clearTokens();
-        // Clear cookies
         document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         router.push('/login');
     };
 
-    // Prevent hydration mismatch by using null on first render/SSR
     const displayedUser = mounted ? user : null;
-
-    const currentRole = displayedUser?.role || Role.Radiologist;
+    const currentRole = displayedUser?.role || Role.Admin;
     const navItems = getNavItems(currentRole);
 
-    const roleColor = {
-        [Role.Admin]: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-        [Role.Doctor]: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-        [Role.Radiologist]: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-        [Role.Lab_Technician]: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    }[currentRole as string] || 'bg-gray-100 text-gray-800';
-
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex transition-colors duration-300">
-
-            {/* Mobile Sidebar overlay */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
-            )}
-
-            {/* Sidebar */}
-            <aside
-                className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-zinc-900 border-r border-border transition-transform duration-300 ease-in-out flex flex-col
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:static'}`}
+        <div className="h-screen w-full bg-[#E5EBEB] flex overflow-hidden">
+            
+             <aside 
+                className={`shrink-0 flex flex-col py-6 bg-transparent transition-all duration-300 ${isDesktopExpanded ? 'w-64 px-4' : 'w-20 items-center'}`}
             >
-                <div className="h-16 flex items-center px-6 border-b border-border justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-blue-600 p-1.5 rounded text-white flex-shrink-0">
-                            <span className="font-bold text-lg leading-none">AI</span>
-                        </div>
-                        <span className="font-semibold text-gray-900 dark:text-white truncate">LungDetect</span>
+                {/* Logo Section */}
+                <div className={`mb-10 flex items-center gap-3 ${isDesktopExpanded ? 'px-2' : 'justify-center w-full'}`}>
+                    <div className="bg-[#4BA0A2] w-10 h-10 shrink-0 rounded-xl text-white shadow-sm flex items-center justify-center">
+                        <span className="font-extrabold text-lg leading-none">AI</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
-                        <X className="h-5 w-5" />
-                    </Button>
+                    {isDesktopExpanded && (
+                        <p className="font-bold text-sm leading-tight text-[#1C2222]">
+                            Lung Disease Detection
+                        </p>
+                    )}
                 </div>
 
-                <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+                {/* Navigation */}
+                <nav className="flex-1 flex flex-col gap-3 w-full">
+                    {/* Expand/Collapse Toggle */}
+                    <button
+                        onClick={() => setIsDesktopExpanded(!isDesktopExpanded)}
+                        className={`p-2.5 rounded-xl text-gray-500 hover:bg-white hover:shadow-sm flex items-center transition-all ${isDesktopExpanded ? 'text-gray-900 justify-start px-4' : 'justify-center mx-auto'}`}
+                    >
+                        <ChevronLeft className={`w-5 h-5 shrink-0 transition-transform duration-300 ${!isDesktopExpanded ? 'rotate-180' : ''}`} />
+                        {isDesktopExpanded && <span className="ml-3 font-extrabold text-[13px]">Collapse</span>}
+                    </button>
+
+                    <div className="w-full h-px bg-gray-200/50 my-2"></div>
+
                     {navItems.map((item) => {
                         const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                         return (
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                onClick={() => setSidebarOpen(false)}
-                                className={`flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${isActive
-                                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
-                                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800/50'
-                                    }`}
+                                title={!isDesktopExpanded ? item.name : undefined}
+                                className={`group flex items-center p-2.5 rounded-xl transition-all duration-200 ${
+                                    isActive 
+                                    ? 'bg-[#1C2222] text-white shadow-sm' 
+                                    : 'text-[#8C9C9D] hover:bg-white hover:shadow-sm hover:text-gray-900'
+                                } ${!isDesktopExpanded ? 'justify-center mx-auto' : 'justify-start px-4'}`}
                             >
-                                <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                                <span className="flex-1 truncate">{item.name}</span>
-                                {item.showBadge && criticalCount > 0 && (
-                                    <Badge variant="destructive" className="ml-auto shrink-0 animate-pulse text-xs px-1.5 py-0">
-                                        {criticalCount}
-                                    </Badge>
+                                <item.icon className={`w-5 h-5 shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
+                                {isDesktopExpanded && (
+                                    <span className="ml-3 font-extrabold text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">
+                                        {item.name}
+                                    </span>
                                 )}
                             </Link>
-                        )
+                        );
                     })}
                 </nav>
 
-                <div className="p-4 border-t border-border">
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                        onClick={handleLogout}
-                    >
-                        <LogOut className="mr-3 h-5 w-5" />
-                        Logout
-                    </Button>
-                </div>
+                {/* Logout */}
+                <button 
+                    onClick={handleLogout}
+                    title="Logout"
+                    className={`p-2.5 mt-auto rounded-xl text-gray-400 hover:text-red-500 hover:bg-white hover:shadow-sm flex items-center transition-all ${isDesktopExpanded ? 'justify-start px-4' : 'justify-center mx-auto'}`}
+                >
+                    <LogOut className="w-5 h-5 shrink-0" />
+                    {isDesktopExpanded && <span className="ml-3 font-extrabold text-[13px]">Logout</span>}
+                </button>
             </aside>
 
-            {/* Main Content Group */}
+            {/* MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                
+                {/* TOP HEADER */}
+                <header className="h-24 flex items-center px-6 lg:px-10 shrink-0 border-none bg-transparent gap-8">
+                    <nav className="hidden lg:flex items-center gap-2 overflow-x-auto no-scrollbar">
+                        {navItems.map((item) => {
+                            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`relative flex items-center px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-200 whitespace-nowrap ${
+                                        isActive 
+                                        ? 'bg-[#1C2222] text-white shadow-sm' 
+                                        : 'text-[#8C9C9D] hover:text-gray-800'
+                                    }`}
+                                >
+                                    <span>{item.name}</span>
+                                    {item.showBadge && criticalCount > 0 && (
+                                        <Badge variant="destructive" className="ml-2 px-1.5 py-0 text-[10px] animate-pulse">
+                                            {criticalCount}
+                                        </Badge>
+                                    )}
+                                </Link>
+                            );
+                        })}
+                    </nav>
 
-                {/* Top Header */}
-                <header className="h-16 flex items-center justify-between border-b border-border bg-white dark:bg-zinc-900 px-4 sm:px-6 lg:px-8 shrink-0 z-10 sticky top-0">
-                    <div className="flex items-center flex-1">
-                        <Button variant="ghost" size="icon" className="mr-2 lg:hidden" onClick={() => setSidebarOpen(true)}>
+                    <div className="lg:hidden flex-1">
+                        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
                             <Menu className="h-5 w-5" />
                         </Button>
-                        <div className="hidden sm:flex items-center text-sm text-gray-500 dark:text-gray-400">
-                            <Hospital className="h-4 w-4 mr-2" />
-                            <span>{displayedUser?.hospital_id || 'St. Paul Hospital Millennium Medical College'}</span>
-                        </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <LanguageToggle />
-
-                        <div className="h-8 w-px bg-gray-200 dark:bg-gray-800 mx-2" />
-
-                        <div className="flex items-center gap-3">
-                            <div className="text-right hidden md:block">
-                                <p className="text-sm font-medium leading-none text-gray-900 dark:text-white">
-                                    {displayedUser?.name || 'Dr. Endashaw'}
-                                </p>
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 mt-1 text-xs font-medium ${roleColor}`}>
-                                    {currentRole.replace('_', ' ')}
-                                </span>
-                            </div>
-                            <Avatar className="h-9 w-9 border border-border">
-                                <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                    {displayedUser?.name ? displayedUser.name.charAt(0).toUpperCase() : 'E'}
+                    {/* User Profile */}
+                    <div className="flex items-center gap-4 ml-auto shrink-0">
+                        <div className="flex items-center gap-3 bg-white pl-1.5 pr-4 py-1.5 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)] ml-2">
+                            <Avatar className="h-8 w-8 border-none">
+                                <AvatarFallback className="bg-[#FFDBA6] text-amber-800 font-bold text-xs">
+                                    {displayedUser?.name ? displayedUser.name.charAt(0).toUpperCase() : 'A'}
                                 </AvatarFallback>
                             </Avatar>
+                            <div className="flex flex-col">
+                                <span className="text-xs font-bold text-gray-400 leading-tight uppercase text-[10px]">
+                                    {currentRole.replace('_', ' ')}
+                                </span>
+                                <span className="text-sm font-extrabold text-[#334155] leading-tight">
+                                    {displayedUser?.name || 'Admin'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </header>
 
-                {/* Page Content */}
-                <main className="flex-1 overflow-auto bg-gray-50 dark:bg-zinc-950">
-                    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-full">
+                <main className="flex-1 overflow-auto bg-transparent">
+                    <div className="p-4 sm:p-6 lg:p-8 xl:pr-10 max-w-[1600px] h-full flex flex-col">
                         <IdleTimeoutProvider>
                             <OnboardingTour />
                             {children}
@@ -228,6 +235,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </main>
             </div>
+
+            {/* Mobile Sidebar overlay */}
+            {sidebarOpen && (
+                <div className="fixed inset-0 z-50 lg:hidden">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+                    <aside className="absolute inset-y-0 left-0 w-64 bg-white shadow-2xl flex flex-col">
+                         <div className="h-20 flex items-center px-6 justify-between border-b border-gray-100">
+                             <span className="font-extrabold text-xl">Menu</span>
+                             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                                 <X className="h-5 w-5" />
+                             </Button>
+                         </div>
+                         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                             {navItems.map((item) => (
+                                 <Link
+                                     key={item.name}
+                                     href={item.href}
+                                     onClick={() => setSidebarOpen(false)}
+                                     className="flex items-center px-4 py-3 rounded-xl text-gray-700 font-bold hover:bg-gray-100"
+                                 >
+                                     <item.icon className="mr-3 h-5 w-5" />
+                                     <span>{item.name}</span>
+                                 </Link>
+                             ))}
+                         </nav>
+                    </aside>
+                </div>
+            )}
         </div>
     );
 }

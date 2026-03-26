@@ -196,7 +196,7 @@ export default function UserManagementPage() {
 
             {/* Add User Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="sm:max-w-[480px]">
+                <DialogContent className="sm:max-w-[480px] bg-white">
                     <DialogHeader>
                         <DialogTitle>Create New User</DialogTitle>
                         <DialogDescription>
@@ -230,7 +230,7 @@ export default function UserManagementPage() {
                                 <SelectTrigger id="user-role">
                                     <SelectValue placeholder="Select role" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className='bg-white'>
                                     <SelectItem value={Role.Admin}>Admin</SelectItem>
                                     <SelectItem value={Role.Doctor}>Doctor</SelectItem>
                                     <SelectItem value={Role.Radiologist}>Radiologist</SelectItem>
