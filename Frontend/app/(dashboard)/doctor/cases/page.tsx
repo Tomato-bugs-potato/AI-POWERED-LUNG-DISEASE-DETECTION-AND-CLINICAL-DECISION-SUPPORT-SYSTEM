@@ -67,152 +67,179 @@ export default function DiagnosisQueuePage() {
     const paginatedCases = filteredCases.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                        Diagnosis Queue
-                    </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Review AI predictions and radiologist annotations for diagnosis.</p>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-700">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-teal-50/50 flex items-center justify-center border border-teal-100/50 shadow-sm">
+                        <FileQuestion className="h-6 w-6 text-[#3DA1A3]" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-inter">
+                            Diagnosis Queue
+                        </h1>
+                        <p className="text-slate-500 dark:text-gray-400 mt-1 font-inter text-sm font-medium">
+                            Review AI predictions and radiologist annotations for final diagnosis.
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <Card>
-                <CardContent className="p-4 sm:p-6 space-y-4">
-
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between">
-                        <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
-                            <div className="relative max-w-xs flex-1">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Card className="card-premium border-none overflow-hidden">
+                <CardContent className="p-0">
+                    <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center bg-slate-50/40">
+                        <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
+                            <div className="relative flex-1 md:max-w-md group">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#3DA1A3] transition-colors" />
                                 <Input
-                                    className="pl-9"
-                                    placeholder="Search Case/Patient..."
+                                    className="pl-10 h-10 bg-white border-slate-200 focus:ring-teal-500/20 focus:border-teal-500/50 transition-all rounded-lg font-inter"
+                                    placeholder="Search by Patient ID or Case ID..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
 
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-[140px]">
-                                    <Filter className="mr-2 h-4 w-4 text-gray-500" />
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Statuses</SelectItem>
-                                    <SelectItem value="Ready_for_Diagnosis">Pending</SelectItem>
-                                    <SelectItem value="Diagnosed">Diagnosed</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <div className="flex flex-wrap gap-3">
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="w-[160px] bg-white border-slate-200 h-10 font-inter font-medium rounded-lg">
+                                        <Filter className="mr-2 h-3.5 w-3.5 text-slate-400" />
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-inter">
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="Ready_for_Diagnosis">Pending</SelectItem>
+                                        <SelectItem value="Diagnosed">Diagnosed</SelectItem>
+                                    </SelectContent>
+                                </Select>
 
-                            <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-                                <SelectTrigger className="w-[140px]">
-                                    <SelectValue placeholder="Urgency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Urgency</SelectItem>
-                                    <SelectItem value="Critical">Critical</SelectItem>
-                                    <SelectItem value="Non_Critical">Non-Critical</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+                                    <SelectTrigger className="w-[160px] bg-white border-slate-200 h-10 font-inter font-medium rounded-lg">
+                                        <SelectValue placeholder="Urgency" />
+                                    </SelectTrigger>
+                                    <SelectContent className="font-inter">
+                                        <SelectItem value="all">All Urgency</SelectItem>
+                                        <SelectItem value="Critical">Critical</SelectItem>
+                                        <SelectItem value="Non_Critical">Non-Critical</SelectItem>
+                                    </SelectContent>
+                                </Select>
 
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-[220px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateRange.from ? (
-                                            dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd")} - {format(dateRange.to, "LLL dd")}
-                                                </>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="min-w-[200px] justify-start text-left font-inter font-medium h-10 border-slate-200 bg-white hover:bg-slate-50 rounded-lg">
+                                            <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
+                                            {dateRange.from ? (
+                                                dateRange.to ? (
+                                                    <span className="text-slate-700">
+                                                        {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-700">{format(dateRange.from, "MMM dd, yyyy")}</span>
+                                                )
                                             ) : (
-                                                format(dateRange.from, "LLL dd, y")
-                                            )
-                                        ) : (
-                                            <span>Filter dates</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={{ from: dateRange.from, to: dateRange.to }}
-                                        onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                                                <span className="text-slate-400">Filter By Date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 border-slate-200 shadow-xl" align="end" sideOffset={10}>
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={dateRange?.from}
+                                            selected={{ from: dateRange.from, to: dateRange.to }}
+                                            onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                                            numberOfMonths={2}
+                                            className="rounded-lg font-inter"
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
 
                         <Button
                             variant="ghost"
-                            className="text-gray-500"
+                            size="sm"
+                            className="text-slate-500 hover:text-teal-600 font-inter font-semibold hover:bg-teal-50 transition-colors"
                             onClick={() => { setStatusFilter('all'); setUrgencyFilter('all'); setSearch(''); setDateRange({}); setPage(1); }}
                         >
-                            Clear
+                            Clear Filters
                         </Button>
                     </div>
 
-                    <div className="border border-border rounded-lg overflow-hidden relative min-h-[400px]">
+                    <div className="relative min-h-[500px]">
                         {isLoading ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-md z-20">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#3DA1A3]"></div>
+                                    <p className="text-sm font-medium text-[#3DA1A3] animate-pulse">Fetching cases...</p>
+                                </div>
                             </div>
                         ) : filteredCases.length === 0 ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50 dark:bg-zinc-900/20">
-                                <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
-                                    <FileQuestion className="h-8 w-8 text-blue-500 dark:text-blue-400" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center">
+                                <div className="mx-auto w-24 h-24 rounded-3xl bg-teal-50/50 flex items-center justify-center mb-6 border border-teal-100/30">
+                                    <FileQuestion className="h-10 w-10 text-teal-400" />
                                 </div>
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No cases found</h3>
-                                <p className="mt-2 text-sm text-gray-500 max-w-sm">No cases match your filters.</p>
+                                <h3 className="text-xl font-bold text-slate-900 font-inter">No cases found</h3>
+                                <p className="mt-2 text-slate-500 max-w-sm font-inter text-sm leading-relaxed">
+                                    We couldn't find any cases matching your current filter criteria. Try adjusting your search or category filters.
+                                </p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 uppercase bg-gray-100/50 dark:bg-zinc-900/50 border-b border-border">
+                                <table className="w-full text-sm text-left border-collapse">
+                                    <thead className="text-[11px] text-slate-500 uppercase font-bold tracking-widest bg-slate-50/80 border-b border-slate-100">
                                         <tr>
-                                            <th scope="col" className="px-4 py-3 font-medium">Patient ID</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Date Ready</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Urgency</th>
-                                            <th scope="col" className="px-4 py-3 font-medium text-right">Action</th>
+                                            <th scope="col" className="px-10 py-5">Patient Information</th>
+                                            <th scope="col" className="px-10 py-5">Ready Since</th>
+                                            <th scope="col" className="px-10 py-5">Status</th>
+                                            <th scope="col" className="px-10 py-5">Urgency</th>
+                                            <th scope="col" className="px-10 py-5 text-right">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-border">
+                                    <tbody className="divide-y divide-slate-100">
                                         {paginatedCases.map((c) => (
                                             <tr
                                                 key={c.case_id}
-                                                className={`hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors group ${c.priority === 'Critical' && c.status === 'Ready_for_Diagnosis' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
+                                                className={`hover:bg-teal-50/20 transition-all duration-300 group ${c.priority === 'Critical' && c.status === 'Ready_for_Diagnosis' ? 'bg-red-50/10' : ''}`}
                                             >
-                                                <td className="px-4 py-4 font-medium text-gray-900 dark:text-gray-100">
-                                                    {c.patient_id}
-                                                    <div className="text-xs font-normal text-muted-foreground">{c.case_id}</div>
+                                                <td className="px-10 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-slate-900 font-inter text-sm mb-0.5">
+                                                            {c.patient_id}
+                                                        </span>
+                                                        <span className="text-[11px] font-mono text-slate-400 tracking-tighter">
+                                                            {c.case_id}
+                                                        </span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-4 py-4 text-gray-500">
-                                                    {formatDateLocale(c.upload_date)}
+                                                <td className="px-10 py-5">
+                                                    <span className="text-slate-600 font-inter font-medium text-sm">
+                                                        {formatDateLocale(c.upload_date)}
+                                                    </span>
                                                 </td>
-                                                <td className="px-4 py-4">
+                                                <td className="px-10 py-5">
                                                     <CaseStatusBadge status={c.status} />
                                                 </td>
-                                                <td className="px-4 py-4">
+                                                <td className="px-10 py-5">
                                                     {c.priority === 'Critical' ? (
-                                                        <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-0 dark:bg-red-900/40 dark:text-red-300">
+                                                        <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-100 hover:bg-red-100 font-inter font-bold text-[10px] tracking-wider uppercase px-2 py-0.5">
                                                             Critical
                                                         </Badge>
                                                     ) : (
-                                                        <span className="text-gray-500 dark:text-gray-400">Routine</span>
+                                                        <span className="text-slate-400 font-inter text-xs font-semibold tracking-wide uppercase">Routine</span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-4 text-right">
+                                                <td className="px-10 py-5 text-right">
                                                     <Button
                                                         asChild
-                                                        variant={c.status === 'Ready_for_Diagnosis' ? "default" : "outline"}
+                                                        variant="outline"
                                                         size="sm"
-                                                        className={c.status === 'Ready_for_Diagnosis' ? (c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700') : "bg-white"}
+                                                        className={`h-9 px-4 font-inter font-bold transition-all shadow-sm ${
+                                                            c.status === 'Ready_for_Diagnosis' 
+                                                                ? (c.priority === 'Critical' ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-teal-200 text-teal-600 hover:bg-teal-50') 
+                                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                        }`}
                                                     >
                                                         <Link href={`/doctor/cases/${c.case_id}`}>
-                                                            {c.status === 'Ready_for_Diagnosis' ? 'Diagnose' : 'View'}
+                                                            {c.status === 'Ready_for_Diagnosis' ? 'Diagnose' : 'View Details'}
                                                         </Link>
                                                     </Button>
                                                 </td>
@@ -225,21 +252,32 @@ export default function DiagnosisQueuePage() {
                     </div>
 
                     {filteredCases.length > 0 && (
-                        <div className="flex items-center justify-between mt-4">
-                            <p className="text-sm text-gray-500">
-                                Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to <span className="font-medium">{Math.min(page * itemsPerPage, filteredCases.length)}</span> of <span className="font-medium">{filteredCases.length}</span> cases
+                        <div className="px-10 py-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
+                            <p className="text-xs font-medium text-slate-500 font-inter">
+                                Showing <span className="text-slate-900 font-bold">{((page - 1) * itemsPerPage) + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(page * itemsPerPage, filteredCases.length)}</span> of <span className="text-slate-900 font-bold">{filteredCases.length}</span> recorded cases
                             </p>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                                    <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-9 px-3 border-slate-200 font-inter font-bold text-slate-700 hover:bg-white rounded-lg"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                                    disabled={page === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1 text-[#3DA1A3]" /> Previous
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-9 px-3 border-slate-200 font-inter font-bold text-slate-700 hover:bg-white rounded-lg"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                                    disabled={page === totalPages}
+                                >
+                                    Next <ChevronRight className="h-4 w-4 ml-1 text-[#3DA1A3]" />
                                 </Button>
                             </div>
                         </div>
                     )}
-
                 </CardContent>
             </Card>
         </div>

@@ -17,7 +17,7 @@ import {
     ShieldAlert,
     HelpCircle,
     ChevronLeft,
- 
+
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -105,11 +105,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const currentRole = displayedUser?.role || Role.Admin;
     const navItems = getNavItems(currentRole);
 
+
     return (
-        <div className="h-screen w-full bg-[#E5EBEB] flex overflow-hidden">
-            
-             <aside 
-                className={`shrink-0 flex flex-col py-6 bg-transparent transition-all duration-300 ${isDesktopExpanded ? 'w-64 px-4' : 'w-20 items-center'}`}
+        <div className="w-full min-h-screen bg-background flex text-foreground">
+
+            <aside
+                className={`sticky top-0 h-screen shrink-0 flex flex-col py-6 bg-background border-r border-gray-300/60 transition-all duration-300 overflow-y-auto ${isDesktopExpanded ? 'w-64 px-4' : 'w-20 items-center'}`}
             >
                 {/* Logo Section */}
                 <div className={`mb-10 flex items-center gap-3 ${isDesktopExpanded ? 'px-2' : 'justify-center w-full'}`}>
@@ -143,11 +144,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 key={item.name}
                                 href={item.href}
                                 title={!isDesktopExpanded ? item.name : undefined}
-                                className={`group flex items-center p-2.5 rounded-xl transition-all duration-200 ${
-                                    isActive 
-                                    ? 'bg-[#1C2222] text-white shadow-sm' 
-                                    : 'text-[#8C9C9D] hover:bg-white hover:shadow-sm hover:text-gray-900'
-                                } ${!isDesktopExpanded ? 'justify-center mx-auto' : 'justify-start px-4'}`}
+                                className={`group flex items-center p-2.5 rounded-xl transition-all duration-200 ${isActive
+                                        ? 'bg-[#1C2222] text-white shadow-sm'
+                                        : 'text-[#8C9C9D] hover:bg-white hover:shadow-sm hover:text-gray-900'
+                                    } ${!isDesktopExpanded ? 'justify-center mx-auto' : 'justify-start px-4'}`}
                             >
                                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
                                 {isDesktopExpanded && (
@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </nav>
 
                 {/* Logout */}
-                <button 
+                <button
                     onClick={handleLogout}
                     title="Logout"
                     className={`p-2.5 mt-auto rounded-xl text-gray-400 hover:text-red-500 hover:bg-white hover:shadow-sm flex items-center transition-all ${isDesktopExpanded ? 'justify-start px-4' : 'justify-center mx-auto'}`}
@@ -172,8 +172,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </aside>
 
             {/* MAIN CONTENT AREA */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                
+            <div className="flex-1 flex flex-col min-w-0">
+
                 {/* TOP HEADER */}
                 <header className="h-24 flex items-center px-6 lg:px-10 shrink-0 border-none bg-transparent gap-8">
                     <nav className="hidden lg:flex items-center gap-2 overflow-x-auto no-scrollbar">
@@ -183,11 +183,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link
                                     key={item.name}
                                     href={item.href}
-                                    className={`relative flex items-center px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-200 whitespace-nowrap ${
-                                        isActive 
-                                        ? 'bg-[#1C2222] text-white shadow-sm' 
-                                        : 'text-[#8C9C9D] hover:text-gray-800'
-                                    }`}
+                                    className={`relative flex items-center px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-200 whitespace-nowrap ${isActive
+                                            ? 'bg-[#1C2222] text-white shadow-sm'
+                                            : 'text-[#8C9C9D] hover:text-gray-800'
+                                        }`}
                                 >
                                     <span>{item.name}</span>
                                     {item.showBadge && criticalCount > 0 && (
@@ -208,7 +207,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* User Profile */}
                     <div className="flex items-center gap-4 ml-auto shrink-0">
-                        <div className="flex items-center gap-3 bg-white pl-1.5 pr-4 py-1.5 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)] ml-2">
+                        <div className="flex items-center gap-3 bg-gray-200/50 pl-3 pr-4 py-1.5 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)] ml-2">
                             <Avatar className="h-8 w-8 border-none">
                                 <AvatarFallback className="bg-[#FFDBA6] text-amber-800 font-bold text-xs">
                                     {displayedUser?.name ? displayedUser.name.charAt(0).toUpperCase() : 'A'}
@@ -226,8 +225,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-auto bg-transparent">
-                    <div className="p-4 sm:p-6 lg:p-8 xl:pr-10 max-w-[1600px] h-full flex flex-col">
+                <main className="flex-1 bg-transparent">
+                    <div className="p-4 sm:p-6 lg:p-8 xl:pr-10 max-w-[1600px] flex flex-col">
                         <IdleTimeoutProvider>
                             <OnboardingTour />
                             {children}
@@ -241,25 +240,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="fixed inset-0 z-50 lg:hidden">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
                     <aside className="absolute inset-y-0 left-0 w-64 bg-white shadow-2xl flex flex-col">
-                         <div className="h-20 flex items-center px-6 justify-between border-b border-gray-100">
-                             <span className="font-extrabold text-xl">Menu</span>
-                             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
-                                 <X className="h-5 w-5" />
-                             </Button>
-                         </div>
-                         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
-                             {navItems.map((item) => (
-                                 <Link
-                                     key={item.name}
-                                     href={item.href}
-                                     onClick={() => setSidebarOpen(false)}
-                                     className="flex items-center px-4 py-3 rounded-xl text-gray-700 font-bold hover:bg-gray-100"
-                                 >
-                                     <item.icon className="mr-3 h-5 w-5" />
-                                     <span>{item.name}</span>
-                                 </Link>
-                             ))}
-                         </nav>
+                        <div className="h-20 flex items-center px-6 justify-between border-b border-gray-100">
+                            <span className="font-extrabold text-xl">Menu</span>
+                            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                            {navItems.map((item) => (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={() => setSidebarOpen(false)}
+                                    className="flex items-center px-4 py-3 rounded-xl text-gray-700 font-bold hover:bg-gray-100"
+                                >
+                                    <item.icon className="mr-3 h-5 w-5" />
+                                    <span>{item.name}</span>
+                                </Link>
+                            ))}
+                        </nav>
                     </aside>
                 </div>
             )}

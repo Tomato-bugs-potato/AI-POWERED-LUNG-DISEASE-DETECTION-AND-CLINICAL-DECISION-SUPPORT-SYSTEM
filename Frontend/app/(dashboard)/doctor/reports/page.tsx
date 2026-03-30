@@ -119,144 +119,153 @@ export default function PastReportsPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-700">
+            <div className="flex flex-col sm:flex-row justify-between items-end gap-6 mb-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-                        <FileText className="h-6 w-6 text-gray-400" />
+                    <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+                        <div className="p-2.5 bg-slate-100 rounded-2xl shadow-inner group">
+                            <FileText className="h-6 w-6 text-slate-600 transition-transform group-hover:scale-110" />
+                        </div>
                         Clinical Reports
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">View, search, print, and securely download finalized patient reports.</p>
+                    <p className="text-slate-500 mt-2 font-medium max-w-xl">Comprehensive clinical diagnostic records and validated patient assessments for secure review.</p>
                 </div>
-                <Button variant="outline" onClick={handleExportCSV} aria-label="Export all reports as CSV file">
-                    <FileDown className="mr-2 h-4 w-4" /> Export CSV
+                <Button variant="outline" onClick={handleExportCSV} className="border-slate-200 shadow-sm hover:shadow-md transition-all h-12 px-6 rounded-2xl font-bold gap-2" aria-label="Export all reports as CSV file">
+                    <FileDown className="h-4 w-4 text-primary" /> Export Dataset
                 </Button>
             </div>
 
-            <Card>
-                <CardContent className="p-4 sm:p-6 space-y-4">
-
-                    <div className="flex flex-col sm:flex-row gap-4 justify-between">
-                        <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
-                            <div className="relative max-w-sm flex-1">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Card className="card-premium border-none overflow-hidden">
+                <CardContent className="p-0">
+                     <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row gap-4 items-center justify-between bg-slate-50/40">
+                        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+                            <div className="relative w-full sm:w-[320px]">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <Input
-                                    className="pl-9"
-                                    placeholder="Search Patient Name, ID, or Case..."
+                                    className="pl-11 h-12 bg-white border-slate-200 rounded-2xl focus:ring-primary/20 transition-all font-medium shadow-sm"
+                                    placeholder="Search patient, ID, or case..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-
+ 
                             <Select value={diagnosisFilter} onValueChange={setDiagnosisFilter}>
-                                <SelectTrigger className="w-[180px]">
-                                    <Filter className="mr-2 h-4 w-4 text-gray-500" />
-                                    <SelectValue placeholder="Diagnosis" />
+                                <SelectTrigger className="h-12 w-full sm:w-[190px] bg-white border-slate-200 rounded-2xl font-bold text-slate-700 shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="h-4 w-4 text-primary" />
+                                        <SelectValue placeholder="Diagnosis" />
+                                    </div>
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Diagnoses</SelectItem>
-                                    <SelectItem value="Normal">Normal</SelectItem>
+                                <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                    <SelectItem value="all" className="font-bold">All Conditions</SelectItem>
+                                    <SelectItem value="Normal">Healthy / Normal</SelectItem>
                                     <SelectItem value="Pneumonia">Pneumonia</SelectItem>
-                                    <SelectItem value="Tuberculosis">Tuberculosis</SelectItem>
-                                    <SelectItem value="Lung Tumor">Lung Tumor</SelectItem>
-                                    <SelectItem value="Other">Other</SelectItem>
+                                    <SelectItem value="COVID-19">COVID-19</SelectItem>
+                                    <SelectItem value="Other">Other Findings</SelectItem>
                                 </SelectContent>
                             </Select>
-
+ 
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-[240px] justify-start text-left font-normal">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                    <Button variant="outline" className="h-12 w-full sm:w-[260px] justify-start text-left font-bold text-slate-700 bg-white border-slate-200 rounded-2xl shadow-sm">
+                                        <CalendarIcon className="mr-3 h-4 w-4 text-primary" />
                                         {dateRange.from ? (
                                             dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
-                                                </>
+                                                <span>{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd, y")}</span>
                                             ) : (
-                                                format(dateRange.from, "LLL dd, y")
+                                                <span>{format(dateRange.from, "MMM dd, y")}</span>
                                             )
                                         ) : (
-                                            <span>Filter dates</span>
+                                            <span className="text-slate-400">Clinical Archive...</span>
                                         )}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 rounded-3xl border-slate-100 shadow-2xl" align="start" sideOffset={10}>
                                     <Calendar
                                         initialFocus
                                         mode="range"
-                                        defaultMonth={dateRange?.from}
                                         selected={{ from: dateRange.from, to: dateRange.to }}
                                         onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
                                         numberOfMonths={2}
+                                        className="rounded-3xl p-4"
                                     />
                                 </PopoverContent>
                             </Popover>
                         </div>
-
-                        <Button
-                            variant="ghost"
-                            className="text-gray-500"
-                            onClick={() => { setDiagnosisFilter('all'); setSearch(''); setDateRange({}); setPage(1); }}
-                        >
-                            Clear
-                        </Button>
+ 
+                        {(search || diagnosisFilter !== 'all' || dateRange.from) && (
+                            <Button
+                                variant="ghost"
+                                className="h-10 px-5 text-slate-400 hover:text-primary hover:bg-primary/5 font-bold rounded-2xl transition-all"
+                                onClick={() => { setDiagnosisFilter('all'); setSearch(''); setDateRange({}); setPage(1); }}
+                            >
+                                Reset Analysis
+                            </Button>
+                        )}
                     </div>
-
-                    <div className="border border-border rounded-lg overflow-hidden relative min-h-[400px]">
+ 
+                    <div className="relative min-h-[450px]">
                         {isLoading ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-20">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                             </div>
                         ) : filteredReports.length === 0 ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50 dark:bg-zinc-900/20">
-                                <div className="mx-auto w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-4">
-                                    <FileQuestion className="h-8 w-8 text-blue-500 dark:text-blue-400" />
+                            <div className="flex flex-col items-center justify-center py-32 text-center animate-in zoom-in-95 duration-500">
+                                <div className="mx-auto w-24 h-24 rounded-[2.5rem] bg-slate-50 flex items-center justify-center mb-6 shadow-inner border border-slate-100 rotate-3 group hover:rotate-0 transition-transform">
+                                    <FileQuestion className="h-10 w-10 text-slate-300 group-hover:text-primary transition-colors" />
                                 </div>
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No reports found</h3>
-                                <p className="mt-2 text-sm text-gray-500 max-w-sm">No clinical reports match your current filters.</p>
+                                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">No Clinical Evidence</h3>
+                                <p className="mt-2 text-slate-500 max-w-sm font-medium">We couldn't find any reports matching the selected criteria. Try adjusting your timeframe or condition filters.</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 uppercase bg-gray-100/50 dark:bg-zinc-900/50 border-b border-border">
+                                    <thead className="text-[11px] text-slate-400 uppercase tracking-[0.2em] bg-slate-50/50 border-b border-slate-100">
                                         <tr>
-                                            <th scope="col" className="px-4 py-3 font-medium">Date</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Patient Details</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Case ID</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Final Diagnosis</th>
-                                            <th scope="col" className="px-4 py-3 font-medium text-right">Actions</th>
+                                            <th scope="col" className="px-10 py-5 font-bold">Issue Date</th>
+                                            <th scope="col" className="px-10 py-5 font-bold">Patient Records</th>
+                                            <th scope="col" className="px-10 py-5 font-bold">Case Sequence</th>
+                                            <th scope="col" className="px-10 py-5 font-bold">Diagnostic Status</th>
+                                            <th scope="col" className="px-10 py-5 font-bold text-right">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-border">
+                                    <tbody className="divide-y divide-slate-50">
                                         {paginatedReports.map((r) => (
-                                            <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors group">
-                                                <td className="px-4 py-4 text-gray-500 dark:text-gray-400">
-                                                    {format(new Date(r.generated_at), 'MMM d, yyyy')}
-                                                    <div className="text-xs">{format(new Date(r.generated_at), 'h:mm a')}</div>
+                                            <tr key={r.id} className="hover:bg-slate-50/70 transition-all group cursor-default">
+                                                <td className="px-10 py-6">
+                                                    <div className="font-bold text-slate-700 tracking-tight">{format(new Date(r.generated_at), 'MMM d, yyyy')}</div>
+                                                    <div className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{format(new Date(r.generated_at), 'h:mm a')}</div>
                                                 </td>
-                                                <td className="px-4 py-4">
-                                                    <div className="font-medium text-gray-900 dark:text-gray-100">{r.patient_name}</div>
-                                                    <div className="text-xs font-mono text-muted-foreground mt-0.5">{r.patient_id}</div>
+                                                <td className="px-10 py-6">
+                                                    <div className="font-extrabold text-slate-900 group-hover:text-primary transition-colors duration-300">{r.patient_name}</div>
+                                                    <div className="text-[11px] font-mono font-medium text-slate-400 mt-1 uppercase tracking-widest">{r.patient_id}</div>
                                                 </td>
-                                                <td className="px-4 py-4 font-mono text-gray-500">{r.case_id}</td>
-                                                <td className="px-4 py-4">
+                                                <td className="px-10 py-6 font-mono text-xs font-bold text-slate-500 bg-slate-50/30">{r.case_id}</td>
+                                                <td className="px-10 py-6">
                                                     {r.status === 'Draft' ? (
-                                                        <Badge variant="secondary" className="bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-800 dark:text-gray-300">Draft</Badge>
+                                                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none px-4 py-1 rounded-full uppercase text-[10px] tracking-wider">Draft</Badge>
                                                     ) : (
-                                                        <Badge variant="outline" className={r.final_diagnosis === 'Normal' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}>
+                                                        <Badge 
+                                                            variant="outline" 
+                                                            className={`font-bold px-4 py-1.5 border-none rounded-full uppercase text-[10px] tracking-[0.1em] shadow-sm transition-transform hover:scale-105 ${
+                                                                r.final_diagnosis === 'Normal' 
+                                                                ? 'bg-emerald-50 text-emerald-600' 
+                                                                : 'bg-amber-50 text-amber-600'
+                                                            }`}
+                                                        >
                                                             {r.final_diagnosis}
                                                         </Badge>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-4 text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button asChild variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800">
-                                                            <Link href={`/doctor/reports/${r.case_id}`}>View</Link>
+                                                <td className="px-10 py-6 text-right">
+                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-300">
+                                                        <Button asChild variant="ghost" size="sm" className="h-10 px-5 text-primary font-extrabold hover:bg-primary/5 rounded-2xl transition-all">
+                                                            <Link href={`/doctor/reports/${r.case_id}`}>View Analysis</Link>
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.case_id)} className="h-8 w-8 text-gray-500 hover:text-gray-900" title="Print">
+                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.case_id)} className="h-10 w-10 text-slate-400 hover:text-slate-900 rounded-2xl hover:bg-slate-100 transition-all" title="Print Archive">
                                                             <Printer className="h-4 w-4" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.case_id)} className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50" title="Download PDF">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.case_id)} className="h-10 w-10 text-slate-400 hover:text-primary rounded-2xl hover:bg-primary/5 transition-all" title="Secure Download">
                                                             <Download className="h-4 w-4" />
                                                         </Button>
                                                     </div>
@@ -270,21 +279,20 @@ export default function PastReportsPage() {
                     </div>
 
                     {filteredReports.length > 0 && (
-                        <div className="flex items-center justify-between mt-4">
-                            <p className="text-sm text-gray-500">
-                                Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to <span className="font-medium">{Math.min(page * itemsPerPage, filteredReports.length)}</span> of <span className="font-medium">{filteredReports.length}</span> reports
+                        <div className="flex items-center justify-between p-8 border-t border-slate-100 bg-slate-50/30">
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                                Showing records <span className="text-slate-900">{((page - 1) * itemsPerPage) + 1}</span> to <span className="text-slate-900">{Math.min(page * itemsPerPage, filteredReports.length)}</span> of <span className="text-slate-900">{filteredReports.length}</span>
                             </p>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                                    <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                            <div className="flex gap-3">
+                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 font-bold px-5 bg-white shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                                    <ChevronLeft className="h-4 w-4 mr-2 text-primary" /> Previous
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 font-bold px-5 bg-white shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                                    Next Phase <ChevronRight className="h-4 w-4 ml-2 text-primary" />
                                 </Button>
                             </div>
                         </div>
                     )}
-
                 </CardContent>
             </Card>
         </div>
