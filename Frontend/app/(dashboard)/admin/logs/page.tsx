@@ -61,28 +61,28 @@ export default function AuditLogsPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-                        <Terminal className="h-6 w-6 text-gray-400" />
+                        <Terminal className="h-6 w-6 text-black" />
                         System Audit Logs
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Review system activities for security and compliance tracking.</p>
                 </div>
             </div>
 
-            <Card>
-                <CardContent className="p-4 sm:p-6 space-y-4">
+            <Card className="border-none shadow-none rounded-none bg-transparent dark:bg-transparent overflow-hidden">
+                <CardContent className="p-0 space-y-4">
 
                     <div className="flex flex-col sm:flex-row gap-4">
                         <div className="relative max-w-sm flex-1">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                             <Input
-                                className="pl-9"
+                                className="pl-9 h-11 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus-visible:ring-1 focus-visible:ring-black/5"
                                 placeholder="Search user or action..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
                         </div>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[180px] bg-white">
                                 <Filter className="mr-2 h-4 w-4 text-gray-500" />
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
@@ -94,27 +94,27 @@ export default function AuditLogsPage() {
                         </Select>
                     </div>
 
-                    <div className="border border-border rounded-lg overflow-hidden relative min-h-[500px]">
+                    <div className="relative min-h-[500px]">
                         {isLoading ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 uppercase bg-gray-100/50 dark:bg-zinc-900/50 border-b border-border">
-                                        <tr>
-                                            <th scope="col" className="px-4 py-3 font-medium">Timestamp</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">User</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Action</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Resource</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">IP Address</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                                <table className="w-full text-sm text-left border-collapse border-spacing-0">
+                                    <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                                        <tr className="divide-x divide-gray-100">
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Timestamp</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">User</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Action</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Resource</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">IP Address</th>
+                                            <th scope="col" className="px-4 py-3.5">Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-border">
+                                    <tbody className="divide-y divide-gray-100">
                                         {filteredLogs.map((log) => (
-                                            <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors font-mono text-xs">
+                                            <tr key={log.id} className="bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100 font-mono text-xs">
                                                 <td className="px-4 py-3 text-gray-500">
                                                     {format(new Date(log.timestamp), 'yyyy-MM-dd HH:mm:ss')}
                                                 </td>

@@ -5,11 +5,13 @@
 
 
 :root {
-  --background: 210 20% 98%; /* Clean, professional slate-gray backdrop */
+  --background: 210 20% 98%;
+  /* Clean, professional slate-gray backdrop */
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-  --primary: 181 45% 42%; /* Sophisticated Medical Teal */
+  --primary: 181 45% 42%;
+  /* Sophisticated Medical Teal */
   --primary-foreground: 210 40% 98%;
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222 47% 11%;
@@ -22,7 +24,8 @@
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 181 45% 42%;
-  --radius: 0.75rem; /* Balanced radius for professional feel */
+  --radius: 0.75rem;
+  /* Balanced radius for professional feel */
 
   /* Chart colors - Medical data visualization */
   --chart-1: oklch(0.52 0.14 250);
@@ -115,6 +118,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --bg-gradient-top: #D8DCDD;
+  --bg-gradient-bottom: #CBDADF;
 }
 
 @layer base {
@@ -122,8 +127,40 @@
     border-color: hsl(var(--border) / 0.8);
   }
 
+  html,
   body {
-    @apply bg-background text-foreground;
+    background: linear-gradient(to bottom, #D8DCDD 0%, #CBDADF 100%);
+    background-attachment: fixed;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  body {
+    @apply text-foreground;
     font-family: 'Nunito', sans-serif;
+  }
+
+  .bg-premium-gradient {
+    background: linear-gradient(to bottom, var(--bg-gradient-top) 0%, var(--bg-gradient-bottom) 100%);
+    background-attachment: fixed;
+  }
+
+   .card-premium-pocket {
+    @apply bg-[#D9E1E1] dark:bg-zinc-800/80 rounded-[3rem] border-none relative transition-all duration-300;
+    mask-image: radial-gradient(circle 40px at 100% 0%, transparent 40px, black 41px);
+    -webkit-mask-image: radial-gradient(circle 40px at 100% 0%, transparent 40px, black 41px);
+  }
+
+  .card-push-container {
+    @apply relative overflow-visible h-full flex flex-col;
+  }
+
+  .card-overlap-btn-pocket {
+    @apply absolute -top-1 -right-1 w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#9EBDBE] z-20 transition-transform hover:scale-105 shadow-sm;
+  }
+
+  .sub-card-white {
+    @apply bg-white dark:bg-zinc-900 rounded-[2rem] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100/20 flex flex-col justify-center;
   }
 }

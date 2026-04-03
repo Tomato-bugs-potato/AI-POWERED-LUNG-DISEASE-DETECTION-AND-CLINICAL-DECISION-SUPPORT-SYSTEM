@@ -84,14 +84,14 @@ export default function DiagnosisQueuePage() {
                 </div>
             </div>
 
-            <Card className="card-premium border-none overflow-hidden">
-                <CardContent className="p-0">
-                    <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center bg-slate-50/40">
+            <Card className="border-none shadow-none rounded-none bg-transparent dark:bg-transparent overflow-hidden">
+                <CardContent className="p-0 space-y-4">
+                    <div className="flex flex-col xl:flex-row gap-4 justify-between items-start xl:items-center">
                         <div className="flex flex-col md:flex-row gap-4 flex-1 w-full">
                             <div className="relative flex-1 md:max-w-md group">
                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#3DA1A3] transition-colors" />
                                 <Input
-                                    className="pl-10 h-10 bg-white border-slate-200 focus:ring-teal-500/20 focus:border-teal-500/50 transition-all rounded-lg font-inter"
+                                    className="pl-10 h-11 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus-visible:ring-1 focus-visible:ring-black/5"
                                     placeholder="Search by Patient ID or Case ID..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -100,11 +100,11 @@ export default function DiagnosisQueuePage() {
 
                             <div className="flex flex-wrap gap-3">
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[160px] bg-white border-slate-200 h-10 font-inter font-medium rounded-lg">
+                                    <SelectTrigger className="w-[160px] bg-white border-gray-200 h-10 font-inter font-medium rounded-xl">
                                         <Filter className="mr-2 h-3.5 w-3.5 text-slate-400" />
                                         <SelectValue placeholder="Status" />
                                     </SelectTrigger>
-                                    <SelectContent className="font-inter">
+                                    <SelectContent className="font-inter bg-white">
                                         <SelectItem value="all">All Statuses</SelectItem>
                                         <SelectItem value="Ready_for_Diagnosis">Pending</SelectItem>
                                         <SelectItem value="Diagnosed">Diagnosed</SelectItem>
@@ -112,10 +112,10 @@ export default function DiagnosisQueuePage() {
                                 </Select>
 
                                 <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-                                    <SelectTrigger className="w-[160px] bg-white border-slate-200 h-10 font-inter font-medium rounded-lg">
+                                    <SelectTrigger className="w-[160px] bg-white border-gray-200 h-10 font-inter font-medium rounded-xl">
                                         <SelectValue placeholder="Urgency" />
                                     </SelectTrigger>
-                                    <SelectContent className="font-inter">
+                                    <SelectContent className="font-inter bg-white">
                                         <SelectItem value="all">All Urgency</SelectItem>
                                         <SelectItem value="Critical">Critical</SelectItem>
                                         <SelectItem value="Non_Critical">Non-Critical</SelectItem>
@@ -184,59 +184,55 @@ export default function DiagnosisQueuePage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
-                                <table className="w-full text-sm text-left border-collapse">
-                                    <thead className="text-[11px] text-slate-500 uppercase font-bold tracking-widest bg-slate-50/80 border-b border-slate-100">
-                                        <tr>
-                                            <th scope="col" className="px-10 py-5">Patient Information</th>
-                                            <th scope="col" className="px-10 py-5">Ready Since</th>
-                                            <th scope="col" className="px-10 py-5">Status</th>
-                                            <th scope="col" className="px-10 py-5">Urgency</th>
-                                            <th scope="col" className="px-10 py-5 text-right">Action</th>
+                                <table className="w-full text-sm text-left border-collapse border-spacing-0">
+                                    <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                                        <tr className="divide-x divide-gray-100">
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Patient Information</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Ready Since</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Status</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100 text-center">Urgency</th>
+                                            <th scope="col" className="px-4 py-3.5 text-right">Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-gray-100">
                                         {paginatedCases.map((c) => (
                                             <tr
                                                 key={c.case_id}
-                                                className={`hover:bg-teal-50/20 transition-all duration-300 group ${c.priority === 'Critical' && c.status === 'Ready_for_Diagnosis' ? 'bg-red-50/10' : ''}`}
+                                                className={`bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100 ${c.priority === 'Critical' && c.status === 'Ready_for_Diagnosis' ? 'bg-red-50/30' : ''}`}
                                             >
-                                                <td className="px-10 py-5">
+                                                <td className="px-4 py-3">
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-slate-900 font-inter text-sm mb-0.5">
+                                                        <span className="font-bold text-black dark:text-gray-100 leading-tight">
                                                             {c.patient_id}
                                                         </span>
-                                                        <span className="text-[11px] font-mono text-slate-400 tracking-tighter">
+                                                        <span className="text-[10px] text-gray-400 font-medium">
                                                             {c.case_id}
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-10 py-5">
-                                                    <span className="text-slate-600 font-inter font-medium text-sm">
-                                                        {formatDateLocale(c.upload_date)}
-                                                    </span>
+                                                <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">
+                                                    {formatDateLocale(c.upload_date)}
                                                 </td>
-                                                <td className="px-10 py-5">
+                                                <td className="px-4 py-3">
                                                     <CaseStatusBadge status={c.status} />
                                                 </td>
-                                                <td className="px-10 py-5">
+                                                <td className="px-4 py-3 text-center">
                                                     {c.priority === 'Critical' ? (
-                                                        <Badge variant="destructive" className="bg-red-50 text-red-700 border-red-100 hover:bg-red-100 font-inter font-bold text-[10px] tracking-wider uppercase px-2 py-0.5">
+                                                        <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-red-100 text-red-700">
                                                             Critical
                                                         </Badge>
                                                     ) : (
-                                                        <span className="text-slate-400 font-inter text-xs font-semibold tracking-wide uppercase">Routine</span>
+                                                        <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-gray-100 text-gray-600">Routine</Badge>
                                                     )}
                                                 </td>
-                                                <td className="px-10 py-5 text-right">
+                                                <td className="px-4 py-3 text-right">
                                                     <Button
                                                         asChild
-                                                        variant="outline"
                                                         size="sm"
-                                                        className={`h-9 px-4 font-inter font-bold transition-all shadow-sm ${
-                                                            c.status === 'Ready_for_Diagnosis' 
-                                                                ? (c.priority === 'Critical' ? 'border-red-200 text-red-600 hover:bg-red-50' : 'border-teal-200 text-teal-600 hover:bg-teal-50') 
-                                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                                        }`}
+                                                        className={`font-bold text-[11px] rounded-full px-5 h-8 text-white ${c.status === 'Ready_for_Diagnosis'
+                                                                ? (c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C2222] hover:bg-[#334155]')
+                                                                : 'bg-gray-400 hover:bg-gray-500'
+                                                            }`}
                                                     >
                                                         <Link href={`/doctor/cases/${c.case_id}`}>
                                                             {c.status === 'Ready_for_Diagnosis' ? 'Diagnose' : 'View Details'}
@@ -252,25 +248,25 @@ export default function DiagnosisQueuePage() {
                     </div>
 
                     {filteredCases.length > 0 && (
-                        <div className="px-10 py-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
+                        <div className="px-4 py-4 flex items-center justify-between">
                             <p className="text-xs font-medium text-slate-500 font-inter">
                                 Showing <span className="text-slate-900 font-bold">{((page - 1) * itemsPerPage) + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(page * itemsPerPage, filteredCases.length)}</span> of <span className="text-slate-900 font-bold">{filteredCases.length}</span> recorded cases
                             </p>
                             <div className="flex gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="h-9 px-3 border-slate-200 font-inter font-bold text-slate-700 hover:bg-white rounded-lg"
-                                    onClick={() => setPage(p => Math.max(1, p - 1))} 
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
                                     disabled={page === 1}
                                 >
                                     <ChevronLeft className="h-4 w-4 mr-1 text-[#3DA1A3]" /> Previous
                                 </Button>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="h-9 px-3 border-slate-200 font-inter font-bold text-slate-700 hover:bg-white rounded-lg"
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} 
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                     disabled={page === totalPages}
                                 >
                                     Next <ChevronRight className="h-4 w-4 ml-1 text-[#3DA1A3]" />

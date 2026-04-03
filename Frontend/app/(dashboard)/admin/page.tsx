@@ -4,6 +4,7 @@
 import { Users, Activity, HardDrive, ShieldAlert, Cpu, Database, AlertCircle, ArrowUpRight, Search } from 'lucide-react';
 
  import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 
@@ -64,7 +65,23 @@ export default function AdminDashboard() {
     if (!stats) return null;
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+        <div className="space-y-8 pb-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight text-black dark:text-white">
+                        System Overview
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Real-time infrastructure and security metrics.</p>
+                </div>
+
+                <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        placeholder="Search system metrics..."
+                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-none shadow-sm rounded-xl focus:ring-teal-500/20"
+                    />
+                </div>
+            </div>
             {/* Grid Layout conforming to Care Point design */}
             <div className="grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] gap-6">
 
@@ -79,129 +96,122 @@ export default function AdminDashboard() {
 
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Card 1: Patients/Personnel */}
-                            <div className="bg-white dark:bg-zinc-800 rounded-[1.5rem] p-5 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col justify-between h-full">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <p className="text-[13px] font-bold text-gray-400 mb-2">Number of personnel</p>
-                                        <Badge variant="outline" className="bg-[#F2F6F6] dark:bg-zinc-900 font-bold border-none text-[#334155] rounded-xl px-3 py-1.5 shadow-sm">
+                            <div className="card-push-container">
+                                <div className="card-overlap-btn-pocket">
+                                    <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                                </div>
+                                <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                                    <div className="mb-6">
+                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Number of patients</p>
+                                        <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
                                             Week ▾
                                         </Badge>
                                     </div>
-                                    <div className="h-8 w-8 rounded-full bg-[#E5F3F4] flex items-center justify-center shrink-0">
-                                        <ArrowUpRight className="h-4 w-4 text-[#44A7AD]" />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4 text-gray-400" />
-                                            <span className="text-[13px] font-bold text-gray-400">Adult Patients</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Users className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">{stats.activeToday}</span>
-                                    </div>
 
-                                    <div className="h-px bg-gray-100 w-full my-2"></div>
+                                    <div className="space-y-4 flex-1 flex flex-col">
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Adult Patients</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Users className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                 <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.activeToday}</span>
+                                            </div>
+                                        </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4 text-gray-400" />
-                                            <span className="text-[13px] font-bold text-gray-400">Total Users</span>
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total Users</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Users className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.totalUsers}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Users className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">{stats.totalUsers}</span>
                                     </div>
                                 </div>
                             </div>
-
                             {/* Card 2: Daily Visit / Cases */}
-                            <div className="bg-white dark:bg-zinc-800 rounded-[1.5rem] p-5 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col justify-between h-full">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <p className="text-[13px] font-bold text-gray-400 mb-2">Daily Visit</p>
-                                        <Badge variant="outline" className="bg-[#F2F6F6] dark:bg-zinc-900 font-bold border-none text-[#334155] rounded-xl px-3 py-1.5 shadow-sm">
+                            <div className="card-push-container">
+                                <div className="card-overlap-btn-pocket">
+                                    <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                                </div>
+                                <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                                    <div className="mb-6">
+                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Daily Visit</p>
+                                        <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
                                             Week ▾
                                         </Badge>
                                     </div>
-                                    <div className="h-8 w-8 rounded-full bg-[#E5F3F4] flex items-center justify-center shrink-0">
-                                        <ArrowUpRight className="h-4 w-4 text-[#44A7AD]" />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[13px] font-bold text-gray-400">Emergency Room</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Activity className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">78</span>
-                                    </div>
 
-                                    <div className="h-px bg-gray-100 w-full my-2"></div>
+                                    <div className="space-y-4 flex-1 flex flex-col">
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Emergency Room</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Activity className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                 <span className="font-bold text-2xl text-[#1C2222] dark:text-white">78</span>
+                                            </div>
+                                        </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[13px] font-bold text-gray-400">Lifetime Cases</span>
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Polyclinic</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Database className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.casesProcessed}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Database className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">{stats.casesProcessed.toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Card 3: Room Capacity / AI Info */}
-                            <div className="bg-white dark:bg-zinc-800 rounded-[1.5rem] p-5 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col justify-between h-full">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <p className="text-[13px] font-bold text-gray-400 mb-2">Model Capacity</p>
-                                        <Badge variant="outline" className="bg-[#F2F6F6] dark:bg-zinc-900 font-bold border-none text-[#334155] rounded-xl px-3 py-1.5 shadow-sm">
+                            {/* Card 3: Model Capacity / AI Info */}
+                            <div className="card-push-container">
+                                <div className="card-overlap-btn-pocket">
+                                    <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                                </div>
+                                <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                                    <div className="mb-6">
+                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Model Capacity</p>
+                                        <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
                                             v2.1 ▾
                                         </Badge>
                                     </div>
-                                    <div className="h-8 w-8 rounded-full bg-[#E5F3F4] flex items-center justify-center shrink-0">
-                                        <ArrowUpRight className="h-4 w-4 text-[#44A7AD]" />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[13px] font-bold text-gray-400">Accuracy</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Cpu className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">{stats.modelAccuracy}</span>
-                                    </div>
 
-                                    <div className="h-px bg-gray-100 w-full my-2"></div>
+                                    <div className="space-y-4 flex-1 flex flex-col">
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Accuracy</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Cpu className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                 <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.modelAccuracy}</span>
+                                            </div>
+                                        </div>
 
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[13px] font-bold text-gray-400">Uptime</span>
+                                        <div className="sub-card-white flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Uptime</span>
+                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                                     <Activity className="h-3.5 w-3.5 text-gray-400" />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.uptime}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-[#F2F6F6] p-1.5 rounded-lg">
-                                            <Activity className="h-4 w-4 text-gray-500" />
-                                        </div>
-                                        <span className="font-extrabold text-xl text-[#334155] dark:text-white">{stats.uptime}</span>
                                     </div>
                                 </div>
                             </div>

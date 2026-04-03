@@ -135,28 +135,28 @@ export default function PastReportsPage() {
                 </Button>
             </div>
 
-            <Card className="card-premium border-none overflow-hidden">
-                <CardContent className="p-0">
-                     <div className="p-6 border-b border-slate-100 flex flex-col lg:flex-row gap-4 items-center justify-between bg-slate-50/40">
+            <Card className="border-none shadow-none rounded-none bg-transparent dark:bg-transparent overflow-hidden">
+                <CardContent className="p-0 space-y-4">
+                    <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
                         <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
                             <div className="relative w-full sm:w-[320px]">
                                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <Input
-                                    className="pl-11 h-12 bg-white border-slate-200 rounded-2xl focus:ring-primary/20 transition-all font-medium shadow-sm"
+                                    className="pl-11 h-11 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus-visible:ring-1 focus-visible:ring-black/5"
                                     placeholder="Search patient, ID, or case..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
- 
+
                             <Select value={diagnosisFilter} onValueChange={setDiagnosisFilter}>
-                                <SelectTrigger className="h-12 w-full sm:w-[190px] bg-white border-slate-200 rounded-2xl font-bold text-slate-700 shadow-sm">
+                                <SelectTrigger className="h-10 w-full sm:w-[190px] bg-white border-gray-200 rounded-xl font-bold text-slate-700">
                                     <div className="flex items-center gap-2">
                                         <Filter className="h-4 w-4 text-primary" />
                                         <SelectValue placeholder="Diagnosis" />
                                     </div>
                                 </SelectTrigger>
-                                <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
+                                <SelectContent className="rounded-xl border-gray-200 bg-white">
                                     <SelectItem value="all" className="font-bold">All Conditions</SelectItem>
                                     <SelectItem value="Normal">Healthy / Normal</SelectItem>
                                     <SelectItem value="Pneumonia">Pneumonia</SelectItem>
@@ -164,7 +164,7 @@ export default function PastReportsPage() {
                                     <SelectItem value="Other">Other Findings</SelectItem>
                                 </SelectContent>
                             </Select>
- 
+
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="h-12 w-full sm:w-[260px] justify-start text-left font-bold text-slate-700 bg-white border-slate-200 rounded-2xl shadow-sm">
@@ -192,7 +192,7 @@ export default function PastReportsPage() {
                                 </PopoverContent>
                             </Popover>
                         </div>
- 
+
                         {(search || diagnosisFilter !== 'all' || dateRange.from) && (
                             <Button
                                 variant="ghost"
@@ -203,7 +203,7 @@ export default function PastReportsPage() {
                             </Button>
                         )}
                     </div>
- 
+
                     <div className="relative min-h-[450px]">
                         {isLoading ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm z-20">
@@ -219,54 +219,53 @@ export default function PastReportsPage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-[11px] text-slate-400 uppercase tracking-[0.2em] bg-slate-50/50 border-b border-slate-100">
-                                        <tr>
-                                            <th scope="col" className="px-10 py-5 font-bold">Issue Date</th>
-                                            <th scope="col" className="px-10 py-5 font-bold">Patient Records</th>
-                                            <th scope="col" className="px-10 py-5 font-bold">Case Sequence</th>
-                                            <th scope="col" className="px-10 py-5 font-bold">Diagnostic Status</th>
-                                            <th scope="col" className="px-10 py-5 font-bold text-right">Actions</th>
+                                <table className="w-full text-sm text-left border-collapse border-spacing-0">
+                                    <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                                        <tr className="divide-x divide-gray-100">
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Issue Date</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Patient Records</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Case Sequence</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Diagnostic Status</th>
+                                            <th scope="col" className="px-4 py-3.5 text-right">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-50">
+                                    <tbody className="divide-y divide-gray-100">
                                         {paginatedReports.map((r) => (
-                                            <tr key={r.id} className="hover:bg-slate-50/70 transition-all group cursor-default">
-                                                <td className="px-10 py-6">
-                                                    <div className="font-bold text-slate-700 tracking-tight">{format(new Date(r.generated_at), 'MMM d, yyyy')}</div>
-                                                    <div className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{format(new Date(r.generated_at), 'h:mm a')}</div>
+                                            <tr key={r.id} className="bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100 group">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-black text-xs">{format(new Date(r.generated_at), 'MMM d, yyyy')}</div>
+                                                    <div className="text-[10px] text-gray-400 font-medium mt-0.5">{format(new Date(r.generated_at), 'h:mm a')}</div>
                                                 </td>
-                                                <td className="px-10 py-6">
-                                                    <div className="font-extrabold text-slate-900 group-hover:text-primary transition-colors duration-300">{r.patient_name}</div>
-                                                    <div className="text-[11px] font-mono font-medium text-slate-400 mt-1 uppercase tracking-widest">{r.patient_id}</div>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-black dark:text-gray-100 leading-tight">{r.patient_name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-medium mt-0.5">{r.patient_id}</div>
                                                 </td>
-                                                <td className="px-10 py-6 font-mono text-xs font-bold text-slate-500 bg-slate-50/30">{r.case_id}</td>
-                                                <td className="px-10 py-6">
+                                                <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">{r.case_id}</td>
+                                                <td className="px-4 py-3">
                                                     {r.status === 'Draft' ? (
-                                                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none px-4 py-1 rounded-full uppercase text-[10px] tracking-wider">Draft</Badge>
+                                                        <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-gray-100 text-gray-600">Draft</Badge>
                                                     ) : (
-                                                        <Badge 
-                                                            variant="outline" 
-                                                            className={`font-bold px-4 py-1.5 border-none rounded-full uppercase text-[10px] tracking-[0.1em] shadow-sm transition-transform hover:scale-105 ${
-                                                                r.final_diagnosis === 'Normal' 
-                                                                ? 'bg-emerald-50 text-emerald-600' 
-                                                                : 'bg-amber-50 text-amber-600'
-                                                            }`}
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`rounded-md px-2 py-0 border-none font-black text-[9px] uppercase ${r.final_diagnosis === 'Normal'
+                                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                                    : 'bg-amber-100 text-amber-700'
+                                                                }`}
                                                         >
                                                             {r.final_diagnosis}
                                                         </Badge>
                                                     )}
                                                 </td>
-                                                <td className="px-10 py-6 text-right">
-                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-300">
-                                                        <Button asChild variant="ghost" size="sm" className="h-10 px-5 text-primary font-extrabold hover:bg-primary/5 rounded-2xl transition-all">
-                                                            <Link href={`/doctor/reports/${r.case_id}`}>View Analysis</Link>
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button asChild size="sm" className="font-bold text-[11px] rounded-full px-5 h-8 bg-[#1C2222] hover:bg-[#334155] text-white">
+                                                            <Link href={`/doctor/reports/${r.case_id}`}>View</Link>
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.case_id)} className="h-10 w-10 text-slate-400 hover:text-slate-900 rounded-2xl hover:bg-slate-100 transition-all" title="Print Archive">
-                                                            <Printer className="h-4 w-4" />
+                                                        <Button variant="ghost" size="icon" onClick={() => handlePrint(r.case_id)} className="h-8 w-8 text-gray-400 hover:text-black rounded-full hover:bg-gray-100" title="Print">
+                                                            <Printer className="h-3.5 w-3.5" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.case_id)} className="h-10 w-10 text-slate-400 hover:text-primary rounded-2xl hover:bg-primary/5 transition-all" title="Secure Download">
-                                                            <Download className="h-4 w-4" />
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.case_id)} className="h-8 w-8 text-gray-400 hover:text-black rounded-full hover:bg-gray-100" title="Download">
+                                                            <Download className="h-3.5 w-3.5" />
                                                         </Button>
                                                     </div>
                                                 </td>
@@ -279,7 +278,7 @@ export default function PastReportsPage() {
                     </div>
 
                     {filteredReports.length > 0 && (
-                        <div className="flex items-center justify-between p-8 border-t border-slate-100 bg-slate-50/30">
+                        <div className="px-4 py-4 flex items-center justify-between">
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                                 Showing records <span className="text-slate-900">{((page - 1) * itemsPerPage) + 1}</span> to <span className="text-slate-900">{Math.min(page * itemsPerPage, filteredReports.length)}</span> of <span className="text-slate-900">{filteredReports.length}</span>
                             </p>

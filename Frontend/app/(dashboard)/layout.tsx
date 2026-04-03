@@ -107,14 +107,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
     return (
-        <div className="w-full min-h-screen bg-background flex text-foreground">
+        <div className="w-full min-h-screen flex text-foreground">
 
             <aside
-                className={`sticky top-0 h-screen shrink-0 flex flex-col py-6 bg-background border-r border-gray-300/60 transition-all duration-300 overflow-y-auto ${isDesktopExpanded ? 'w-64 px-4' : 'w-20 items-center'}`}
+                className={`sticky top-0 h-screen shrink-0 flex flex-col py-6 bg-transparent  transition-all duration-300 overflow-y-auto ${isDesktopExpanded ? 'w-64 px-4' : 'w-24 items-center'}`}
             >
                 {/* Logo Section */}
                 <div className={`mb-10 flex items-center gap-3 ${isDesktopExpanded ? 'px-2' : 'justify-center w-full'}`}>
-                    <div className="bg-[#4BA0A2] w-10 h-10 shrink-0 rounded-xl text-white shadow-sm flex items-center justify-center">
+                    <div className={`bg-[#4BA0A2] shrink-0 rounded-2xl text-white shadow-md flex items-center justify-center transition-all duration-300 ${isDesktopExpanded ? 'w-10 h-10' : 'w-12 h-12'}`}>
                         <span className="font-extrabold text-lg leading-none">AI</span>
                     </div>
                     {isDesktopExpanded && (
@@ -126,10 +126,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 {/* Navigation */}
                 <nav className="flex-1 flex flex-col gap-3 w-full">
-                    {/* Expand/Collapse Toggle */}
-                    <button
+                     <button
                         onClick={() => setIsDesktopExpanded(!isDesktopExpanded)}
-                        className={`p-2.5 rounded-xl text-gray-500 hover:bg-white hover:shadow-sm flex items-center transition-all ${isDesktopExpanded ? 'text-gray-900 justify-start px-4' : 'justify-center mx-auto'}`}
+                        className={`transition-all duration-300 flex items-center ${isDesktopExpanded ? 'p-3 px-4 rounded-2xl text-gray-900 hover:bg-white/50 w-full  ' : 'w-12 h-12 rounded-full bg-white/40 dark:bg-zinc-900/40 text-gray-500 hover:bg-white justify-center mx-auto shadow-sm'}`}
                     >
                         <ChevronLeft className={`w-5 h-5 shrink-0 transition-transform duration-300 ${!isDesktopExpanded ? 'rotate-180' : ''}`} />
                         {isDesktopExpanded && <span className="ml-3 font-extrabold text-[13px]">Collapse</span>}
@@ -144,10 +143,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 key={item.name}
                                 href={item.href}
                                 title={!isDesktopExpanded ? item.name : undefined}
-                                className={`group flex items-center p-2.5 rounded-xl transition-all duration-200 ${isActive
-                                        ? 'bg-[#1C2222] text-white shadow-sm'
-                                        : 'text-[#8C9C9D] hover:bg-white hover:shadow-sm hover:text-gray-900'
-                                    } ${!isDesktopExpanded ? 'justify-center mx-auto' : 'justify-start px-4'}`}
+                                className={`group flex items-center transition-all duration-300 ${isActive
+                                        ? (isDesktopExpanded ? 'bg-[#1C2222] text-white shadow-md rounded-2xl p-3 px-4' : 'bg-[#1C2222] text-white shadow-lg rounded-full w-12 h-12 justify-center')
+                                        : (isDesktopExpanded ? 'text-black hover:bg-white/50 hover:text-gray-900 rounded-2xl p-3 px-4' : 'bg-white/60 dark:bg-zinc-900/40 text-black hover:bg-white hover:text-gray-900 rounded-full w-12 h-12 justify-center shadow-sm')
+                                    } ${isDesktopExpanded ? 'w-full' : 'mx-auto'}`}
                             >
                                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
                                 {isDesktopExpanded && (
@@ -164,10 +163,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <button
                     onClick={handleLogout}
                     title="Logout"
-                    className={`p-2.5 mt-auto rounded-xl text-gray-400 hover:text-red-500 hover:bg-white hover:shadow-sm flex items-center transition-all ${isDesktopExpanded ? 'justify-start px-4' : 'justify-center mx-auto'}`}
+                    className={`mt-auto transition-all duration-300 flex items-center ${isDesktopExpanded ? 'p-3 px-4 rounded-2xl text-gray-400 hover:text-red-500 hover:bg-white/50 w-full' : 'w-12 h-12 rounded-full bg-white/40 dark:bg-zinc-900/40 text-gray-400 hover:text-red-500 hover:bg-white justify-center mx-auto shadow-sm'}`}
                 >
                     <LogOut className="w-5 h-5 shrink-0" />
-                    {isDesktopExpanded && <span className="ml-3 font-extrabold text-[13px]">Logout</span>}
+                    {isDesktopExpanded && <span className="ml-3 font-extrabold text-[13px] text-black">Logout</span>}
                 </button>
             </aside>
 
@@ -185,7 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     href={item.href}
                                     className={`relative flex items-center px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-200 whitespace-nowrap ${isActive
                                             ? 'bg-[#1C2222] text-white shadow-sm'
-                                            : 'text-[#8C9C9D] hover:text-gray-800'
+                                            : 'text-black hover:text-gray-800'
                                         }`}
                                 >
                                     <span>{item.name}</span>
@@ -207,7 +206,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     {/* User Profile */}
                     <div className="flex items-center gap-4 ml-auto shrink-0">
-                        <div className="flex items-center gap-3 bg-gray-200/50 pl-3 pr-4 py-1.5 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.02)] ml-2">
+                        <div className="flex items-center gap-3 bg-white pl-3 pr-4 py-1.5 rounded-full   ml-2">
                             <Avatar className="h-8 w-8 border-none">
                                 <AvatarFallback className="bg-[#FFDBA6] text-amber-800 font-bold text-xs">
                                     {displayedUser?.name ? displayedUser.name.charAt(0).toUpperCase() : 'A'}

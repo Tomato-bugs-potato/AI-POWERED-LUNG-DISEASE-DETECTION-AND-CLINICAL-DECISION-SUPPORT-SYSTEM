@@ -201,7 +201,7 @@ export default function RadiologistDashboard() {
                     ) : (
                         <div className="text-center py-10">
                             <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                <CheckCircle2 className="h-6 w-6 text-gray-400" />
+                                <CheckCircle2 className="h-6 w-6 text-black" />
                             </div>
                             <h3 className="text-sm font-medium text-gray-900 dark:text-white">All caught up</h3>
                             <p className="text-sm text-gray-500 mt-1">No pending cases in the queue.</p>

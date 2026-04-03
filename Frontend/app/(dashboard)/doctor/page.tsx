@@ -5,14 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Search, Activity, CheckCircle2, TrendingUp, AlertCircle } from 'lucide-react';
+import { Search, Activity, CheckCircle2, TrendingUp, AlertCircle, ArrowUpRight, Users, Stethoscope } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store';
-import { Case } from '@/types';
 import api from '@/lib/api';
 
 const fetchDoctorDashboardData = async () => {
@@ -31,10 +29,8 @@ const fetchDoctorDashboardData = async () => {
         const pending = allCases
             .filter((c: any) => c.status === 'Ready_for_Diagnosis' || c.status === 'In_Review')
             .sort((a: any, b: any) => {
-                // Critical cases first
                 if (a.priority === 'Critical' && b.priority !== 'Critical') return -1;
                 if (a.priority !== 'Critical' && b.priority === 'Critical') return 1;
-                // Then newest first
                 return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
             });
         const completed = allCases.filter((c: any) => c.status === 'Diagnosed' || c.status === 'Completed');
@@ -65,130 +61,235 @@ export default function DoctorDashboard() {
         }
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-8 pb-10">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-black tracking-tight text-black dark:text-white">
                         Welcome, {user?.name || 'Dr. Endashaw'}
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Here is your diagnosis queue and daily summary.</p>
                 </div>
 
                 <form onSubmit={handleSearch} className="relative w-full sm:w-72">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                         placeholder="Quick patient search..."
-                        className="pl-9 bg-white dark:bg-zinc-900"
+                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-none shadow-sm rounded-xl focus:ring-teal-500/20"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </form>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card className="border-red-100 dark:border-red-900/50">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-red-600 dark:text-red-400">Pending Diagnosis</CardTitle>
-                        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : pendingCases.length}</div>
-                        <p className="text-xs text-red-600/80 font-medium mt-1">
-                            {pendingCases.filter((c: any) => c.priority === 'Critical').length} critical cases
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">Completed Today</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : completedCases.length}</div>
-                        <p className="text-xs text-gray-500 mt-1">Total completed cases</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">Total This Week</CardTitle>
-                        <TrendingUp className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : data?.total || 0}</div>
-                        <p className="text-xs text-blue-600 font-medium mt-1">Total cases in system</p>
-                    </CardContent>
-                </Card>
+            {/* Statistical Summary Module - matching admin layout */}
+            <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-[2rem] p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-[1.3rem] font-extrabold text-[#334155] dark:text-gray-100">Clinical Summary</h2>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Card 1: Pending Diagnosis */}
+                    <div className="card-push-container">
+                        <div className="card-overlap-btn-pocket">
+                            <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                        </div>
+                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                            <div className="mb-6">
+                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Pending Diagnosis</p>
+                                <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
+                                    Today ▾
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-4 flex-1 flex flex-col">
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Awaiting Review</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                         <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{pendingCases.length}</span>
+                                    </div>
+                                </div>
+
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Critical Cases</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{pendingCases.filter((c: any) => c.priority === 'Critical').length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 2: Completed Today */}
+                    <div className="card-push-container">
+                        <div className="card-overlap-btn-pocket">
+                            <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                        </div>
+                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                            <div className="mb-6">
+                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Completed Cases</p>
+                                <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
+                                    Today ▾
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-4 flex-1 flex flex-col">
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Diagnosed</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                         <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length}</span>
+                                    </div>
+                                </div>
+
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total Completed</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <Activity className="h-3.5 w-3.5 text-gray-400" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Card 3: Total Cases */}
+                    <div className="card-push-container">
+                        <div className="card-overlap-btn-pocket">
+                            <ArrowUpRight className="h-5 w-5 stroke-[2]" />
+                        </div>
+                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
+                            <div className="mb-6">
+                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Case Overview</p>
+                                <Badge variant="outline" className="bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 py-1.5 shadow-sm text-[11px]">
+                                    This Week ▾
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-4 flex-1 flex flex-col">
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total In System</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                         <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{data?.total || 0}</span>
+                                    </div>
+                                </div>
+
+                                <div className="sub-card-white flex-1">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Patients Seen</span>
+                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
+                                             <Users className="h-3.5 w-3.5 text-gray-400" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length + pendingCases.length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Needs Diagnosis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        </div>
-                    ) : pendingCases && pendingCases.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-900/50 border-b border-border">
-                                    <tr>
-                                        <th scope="col" className="px-4 py-3 font-medium">Patient ID</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Radiologist</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Date Ready</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Urgency</th>
-                                        <th scope="col" className="px-4 py-3 font-medium text-right">Action</th>
+            {/* Needs Diagnosis Section - matching admin's module wrapper style */}
+            <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-[2rem] p-6 lg:p-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-[1.3rem] font-extrabold text-[#334155] dark:text-gray-100">Needs Diagnosis</h2>
+                </div>
+
+                {pendingCases && pendingCases.length > 0 ? (
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-sm text-left border-collapse border-spacing-0">
+                            <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                                <tr className="divide-x divide-gray-100">
+                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Patient ID</th>
+                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Department</th>
+                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Date Ready</th>
+                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100 text-center">Urgency</th>
+                                    <th scope="col" className="px-4 py-3.5 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {pendingCases.map((c: any) => (
+                                    <tr
+                                        key={c.case_id}
+                                        className={`bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100 ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
+                                    >
+                                        <td className="px-4 py-3">
+                                            <div className="font-bold text-black dark:text-gray-100 leading-tight">{c.patient_id.substring(0, 8)}...</div>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">Radiology Dept</td>
+                                        <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">
+                                            {format(new Date(c.updated_at), 'h:mm a (MMM d)')}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            {c.priority === 'Critical' ? (
+                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-red-100 text-red-700">
+                                                    Critical
+                                                </Badge>
+                                            ) : c.priority === 'High' ? (
+                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-orange-100 text-orange-700">
+                                                    Urgent
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-gray-100 text-gray-600">
+                                                    Routine
+                                                </Badge>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button asChild className={`font-bold text-[11px] rounded-full px-5 h-8 ${c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C2222] hover:bg-[#334155]'} text-white`}>
+                                                <Link href={`/doctor/cases/${c.case_id}`}>
+                                                    Diagnose
+                                                </Link>
+                                            </Button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {pendingCases.map((c: any) => (
-                                        <tr
-                                            key={c.case_id}
-                                            className={`hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors group ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
-                                        >
-                                            <td className="px-4 py-4 font-medium text-gray-900 dark:text-gray-100">{c.patient_id.substring(0, 8)}...</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">Radiology Dept</td>
-                                            <td className="px-4 py-4 text-gray-500 dark:text-gray-400">
-                                                {format(new Date(c.updated_at), 'h:mm a (MMM d)')}
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                {c.priority === 'Critical' ? (
-                                                    <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-0 dark:bg-red-900/40 dark:text-red-300">
-                                                        Critical
-                                                    </Badge>
-                                                ) : c.priority === 'High' ? (
-                                                    <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300">
-                                                        Urgent
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-gray-500 dark:text-gray-400">Routine</span>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-4 text-right">
-                                                <Button asChild className={`font-medium ${c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                                    <Link href={`/doctor/cases/${c.case_id}`}>
-                                                        Diagnose
-                                                    </Link>
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-[1.5rem] p-8 shadow-sm text-center">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mb-3">
+                            <CheckCircle2 className="h-6 w-6 text-green-500" />
                         </div>
-                    ) : (
-                        <div className="text-center py-10">
-                            <div className="mx-auto w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mb-3">
-                                <CheckCircle2 className="h-6 w-6 text-green-500" />
-                            </div>
-                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">All caught up</h3>
-                            <p className="text-sm text-gray-500 mt-1">No pending diagnoses in your queue.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                        <h3 className="text-sm font-extrabold text-[#334155] dark:text-white">All caught up</h3>
+                        <p className="text-sm text-gray-500 mt-1">No pending diagnoses in your queue.</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

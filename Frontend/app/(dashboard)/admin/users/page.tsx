@@ -94,7 +94,7 @@ export default function UserManagementPage() {
                 to_email: variables.email,
                 to_name: variables.name,
                 temp_password: variables.password,
-            }).catch(() => {/* email failure is non-fatal */});
+            }).catch(() => {/* email failure is non-fatal */ });
             setNewName('');
             setNewEmail('');
             setNewRole(Role.Doctor);
@@ -130,7 +130,7 @@ export default function UserManagementPage() {
                     to_email: affected.email,
                     to_name: affected.name,
                     new_role: variables.role,
-                }).catch(() => {/* email failure is non-fatal */});
+                }).catch(() => {/* email failure is non-fatal */ });
             }
         },
         onError: () => toast.error('Failed to update role'),
@@ -183,7 +183,7 @@ export default function UserManagementPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-                        <Shield className="h-6 w-6 text-gray-400" />
+                        <Shield className="h-6 w-6 text-black" />
                         User Management
                     </h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Manage staff access roles and system permissions.</p>
@@ -265,20 +265,20 @@ export default function UserManagementPage() {
                 </DialogContent>
             </Dialog>
 
-            <Card>
-                <CardContent className="p-4 sm:p-6 space-y-4">
+            <Card className="border-none shadow-none rounded-none bg-transparent dark:bg-transparent overflow-hidden">
+                <CardContent className="p-0 space-y-4">
 
                     <div className="relative max-w-sm">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                         <Input
-                            className="pl-9"
+                            className="pl-9 h-11 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus-visible:ring-1 focus-visible:ring-black/5"
                             placeholder="Search users..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
 
-                    <div className="border border-border rounded-lg overflow-hidden relative min-h-[400px]">
+                    <div className="relative min-h-[400px]">
                         {isLoading ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm z-10">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -291,41 +291,42 @@ export default function UserManagementPage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto w-full">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs text-gray-500 uppercase bg-gray-100/50 dark:bg-zinc-900/50 border-b border-border">
-                                        <tr>
-                                            <th scope="col" className="px-4 py-3 font-medium">Name</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Role</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                                            <th scope="col" className="px-4 py-3 font-medium">Last Login</th>
-                                            <th scope="col" className="px-4 py-3 font-medium text-right">Actions</th>
+                                <table className="w-full text-sm text-left border-collapse border-spacing-0">
+                                    <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                                        <tr className="divide-x divide-gray-100">
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Personnel Name</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100 text-center">Designation</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100 text-center">Account Status</th>
+                                            <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Recorded Activity</th>
+                                            <th scope="col" className="px-4 py-3.5 text-right w-[100px]">Options</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-border">
+                                    <tbody className="divide-y divide-gray-100">
                                         {filteredUsers.map((u) => (
-                                            <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                                <td className="px-4 py-4">
-                                                    <div className="font-medium text-gray-900 dark:text-gray-100">{u.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{u.email}</div>
+                                            <tr key={u.id} className="bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-bold text-black dark:text-gray-100 leading-tight">{u.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-medium">{u.email}</div>
                                                 </td>
-                                                <td className="px-4 py-4">
-                                                    <Badge variant="outline" className={
-                                                        u.role === 'Admin' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800' :
-                                                            u.role === 'Doctor' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' :
-                                                                'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
-                                                    }>
+                                                <td className="px-4 py-3 text-center">
+                                                    <Badge variant="outline" className={`rounded-md px-2 py-0 border-none font-black text-[9px] uppercase ${
+                                                        u.role === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                                                        u.role === 'Doctor' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-orange-100 text-orange-700'
+                                                    }`}>
                                                         {u.role}
                                                     </Badge>
                                                 </td>
-                                                <td className="px-4 py-4">
-                                                    <Badge variant="secondary" className={u.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}>
-                                                        {u.status}
-                                                    </Badge>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="inline-flex items-center gap-2 bg-gray-50 dark:bg-zinc-800 px-2 py-0.5 rounded-full border border-gray-100">
+                                                        <div className={`h-1.5 w-1.5 rounded-full ${u.status === 'Active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500'}`} />
+                                                        <span className={`text-[9px] font-black uppercase ${u.status === 'Active' ? 'text-green-600' : 'text-red-600'}`}>{u.status}</span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-4 py-4 text-gray-500 text-xs">
+                                                <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">
                                                     {format(new Date(u.last_login), 'MMM d, h:mm a')}
                                                 </td>
-                                                <td className="px-4 py-4 text-right">
+                                                <td className="px-4 py-3 text-right">
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -333,13 +334,13 @@ export default function UserManagementPage() {
                                                                 <MoreHorizontal className="h-4 w-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
+                                                        <DropdownMenuContent align="end" className='bg-white'>
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                             <DropdownMenuSub>
                                                                 <DropdownMenuSubTrigger>
                                                                     <Edit className="mr-2 h-4 w-4" /> Change Role
                                                                 </DropdownMenuSubTrigger>
-                                                                <DropdownMenuSubContent>
+                                                                <DropdownMenuSubContent >
                                                                     <DropdownMenuItem onClick={() => handleRoleChange(u.id, Role.Admin)} disabled={u.role === Role.Admin}>Admin</DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => handleRoleChange(u.id, Role.Doctor)} disabled={u.role === Role.Doctor}>Doctor</DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => handleRoleChange(u.id, Role.Radiologist)} disabled={u.role === Role.Radiologist}>Radiologist</DropdownMenuItem>

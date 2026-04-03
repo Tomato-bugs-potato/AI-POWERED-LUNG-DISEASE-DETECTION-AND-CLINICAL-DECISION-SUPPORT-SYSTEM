@@ -178,8 +178,7 @@ function WorkflowStep({
 
 export default function HelpPage() {
   const { user } = useAuthStore();
-  const isRadiologist = user?.role === Role.Radiologist;
-  const isDoctor = user?.role === Role.Doctor;
+   const isDoctor = user?.role === Role.Doctor;
 
   // Determine which workflow section appears first based on role
   const radiologistSection = (
@@ -233,7 +232,7 @@ export default function HelpPage() {
       </div>
 
       {/* ── Section 1: Getting Started ── */}
-      <Card aria-labelledby="getting-started-title">
+      <Card aria-labelledby="getting-started-title" className='bg-white'>
         <CardHeader>
           <CardTitle id="getting-started-title" className="sr-only">
             Getting Started
@@ -263,7 +262,7 @@ export default function HelpPage() {
       </Card>
 
       {/* ── Section 2: FAQ ── */}
-      <Card aria-labelledby="faq-title">
+      <Card aria-labelledby="faq-title" className='bg-white'>
         <CardHeader>
           <CardTitle id="faq-title" className="sr-only">
             Frequently Asked Questions
@@ -296,7 +295,7 @@ export default function HelpPage() {
       </Card>
 
       {/* ── Section 3: Keyboard Shortcuts ── */}
-      <Card aria-labelledby="shortcuts-title">
+      <Card aria-labelledby="shortcuts-title" className='bg-white'>
         <CardHeader>
           <CardTitle id="shortcuts-title" className="sr-only">
             Keyboard Shortcuts
