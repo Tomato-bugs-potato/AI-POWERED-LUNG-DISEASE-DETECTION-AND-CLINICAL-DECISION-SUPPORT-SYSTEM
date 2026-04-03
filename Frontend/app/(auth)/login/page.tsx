@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Stethoscope, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
 const loginSchema = z.object({
@@ -78,11 +78,6 @@ export default function LoginPage() {
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="flex justify-center">
-                    <div className="bg-blue-600 p-3 rounded-full">
-                        <Stethoscope className="w-8 h-8 text-white" />
-                    </div>
-                </div>
                 <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                     AI Lung Disease Detection
                 </h2>
@@ -135,7 +130,7 @@ export default function LoginPage() {
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <Label htmlFor="password" className={errors.password ? "text-red-500" : ""}>Password</Label>
-                                    <a href="/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                                    <a href="/forgot-password" className="text-sm font-medium text-[#4DC8D8] hover:text-[#3ab8c8] dark:text-[#4DC8D8]">
                                         Forgot Password?
                                     </a>
                                 </div>
@@ -164,7 +159,7 @@ export default function LoginPage() {
 
                             <Button
                                 type="submit"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-[#4DC8D8] hover:bg-[#3ab8c8] text-white"
                                 disabled={isSubmitting || !!lockedMsg}
                             >
                                 {isSubmitting ? (

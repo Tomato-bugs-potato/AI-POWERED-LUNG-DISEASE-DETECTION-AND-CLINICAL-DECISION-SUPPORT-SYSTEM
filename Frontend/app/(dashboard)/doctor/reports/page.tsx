@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
-import { Search, FileText, Download, Printer, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileQuestion } from 'lucide-react';
+import { Search, FileText, Download, Printer, Filter, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileQuestion, Eye } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -206,11 +206,13 @@ export default function PastReportsPage() {
                                                 </td>
                                                 <td className="px-4 py-4 text-right">
                                                     <div className="flex justify-end gap-2">
+                                                        <Button asChild variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                                                            <Link href={`/doctor/reports/${r.case_id}`}>
+                                                                <Eye className="h-3.5 w-3.5 mr-1.5" /> View
+                                                            </Link>
+                                                        </Button>
                                                         <Button variant="ghost" size="icon" onClick={() => handlePrint(r.id)} className="h-8 w-8 text-gray-500 hover:text-gray-900" title="Print">
                                                             <Printer className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDownload(r.id)} className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50" title="Download PDF">
-                                                            <Download className="h-4 w-4" />
                                                         </Button>
                                                     </div>
                                                 </td>

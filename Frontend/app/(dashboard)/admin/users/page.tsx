@@ -66,6 +66,7 @@ export default function UserManagementPage() {
     const queryClient = useQueryClient();
     const [search, setSearch] = React.useState('');
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [confirmAction, setConfirmAction] = React.useState<{ type: 'suspend' | 'delete'; userId: string; userName: string } | null>(null);
 
     // Add User form state
     const [newName, setNewName] = React.useState('');
@@ -142,15 +143,21 @@ export default function UserManagementPage() {
     };
 
     const handleSuspend = (userId: string, userName: string) => {
-        if (confirm(`Suspend ${userName}? They will lose access.`)) {
-            suspendUserMutation.mutate(userId);
-        }
+        setConfirmAction({ type: 'suspend', userId, userName });
     };
 
     const handleDelete = (userId: string, userName: string) => {
-        if (confirm(`Permanently delete ${userName}? This cannot be undone.`)) {
-            deleteUserMutation.mutate(userId);
+        setConfirmAction({ type: 'delete', userId, userName });
+    };
+
+    const handleConfirmAction = () => {
+        if (!confirmAction) return;
+        if (confirmAction.type === 'suspend') {
+            suspendUserMutation.mutate(confirmAction.userId);
+        } else {
+            deleteUserMutation.mutate(confirmAction.userId);
         }
+        setConfirmAction(null);
     };
 
     const handleRoleChange = (userId: string, newRoleValue: string) => {
@@ -177,6 +184,30 @@ export default function UserManagementPage() {
                     <UserPlus className="mr-2 h-4 w-4" /> Add New User
                 </Button>
             </div>
+
+            {/* Confirm Action Dialog */}
+            <Dialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle>{confirmAction?.type === 'delete' ? 'Delete User' : 'Suspend User'}</DialogTitle>
+                        <DialogDescription>
+                            {confirmAction?.type === 'delete'
+                                ? `Permanently delete "${confirmAction?.userName}"? This cannot be undone.`
+                                : `Suspend "${confirmAction?.userName}"? They will lose system access.`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmAction}
+                            disabled={suspendUserMutation.isPending || deleteUserMutation.isPending}
+                        >
+                            {confirmAction?.type === 'delete' ? 'Delete' : 'Suspend'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Add User Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

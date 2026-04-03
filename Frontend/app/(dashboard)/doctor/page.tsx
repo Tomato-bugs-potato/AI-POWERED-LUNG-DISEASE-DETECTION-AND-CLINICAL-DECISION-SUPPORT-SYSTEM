@@ -15,11 +15,23 @@ import { useAuthStore } from '@/store';
 import { Case } from '@/types';
 import api from '@/lib/api';
 
-const fetchPendingDiagnosis = async (): Promise<Case[]> => {
+interface DoctorStats {
+    pending: Case[];
+    completedToday: number;
+    thisWeek: number;
+}
+
+const fetchDoctorStats = async (): Promise<DoctorStats> => {
     try {
-        const response = await api.get('/cases', { params: { status: 'Ready_for_Diagnosis' } });
-        const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
-        return data.map((c: any) => ({
+        const response = await api.get('/cases');
+        const data: any[] = Array.isArray(response.data) ? response.data : (response.data?.items || []);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+
+        const allCases = data.map((c: any) => ({
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status,
@@ -28,8 +40,14 @@ const fetchPendingDiagnosis = async (): Promise<Case[]> => {
             image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
             radiologist_review: c.radiologist_review || undefined,
         }));
+
+        const pending = allCases.filter((c: any) => c.status === 'Ready_for_Diagnosis');
+        const completedToday = allCases.filter((c: any) => c.status === 'Diagnosed' && new Date(c.upload_date) >= today).length;
+        const thisWeek = allCases.filter((c: any) => c.status === 'Diagnosed' && new Date(c.upload_date) >= weekAgo).length;
+
+        return { pending, completedToday, thisWeek };
     } catch {
-        return [];
+        return { pending: [], completedToday: 0, thisWeek: 0 };
     }
 };
 
@@ -38,10 +56,12 @@ export default function DoctorDashboard() {
     const { user } = useAuthStore();
     const [searchQuery, setSearchQuery] = React.useState('');
 
-    const { data: cases, isLoading } = useQuery({
-        queryKey: ['doctor-pending-cases'],
-        queryFn: fetchPendingDiagnosis,
+    const { data: stats, isLoading } = useQuery({
+        queryKey: ['doctor-stats'],
+        queryFn: fetchDoctorStats,
     });
+
+    const cases = stats?.pending;
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -90,18 +110,18 @@ export default function DoctorDashboard() {
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">14</div>
-                        <p className="text-xs text-gray-500 mt-1">Average time: 4m 30s</p>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : (stats?.completedToday || 0)}</div>
+                        <p className="text-xs text-green-600 font-medium mt-1">Diagnosed cases</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">Total This Week</CardTitle>
+                        <CardTitle className="text-sm font-medium text-gray-500">Diagnosed This Week</CardTitle>
                         <TrendingUp className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white">126</div>
-                        <p className="text-xs text-blue-600 font-medium mt-1">+12% from last week</p>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">{isLoading ? '...' : (stats?.thisWeek || 0)}</div>
+                        <p className="text-xs text-blue-600 font-medium mt-1">Last 7 days</p>
                     </CardContent>
                 </Card>
             </div>
@@ -134,7 +154,7 @@ export default function DoctorDashboard() {
                                             className={`hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 transition-colors group ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
                                         >
                                             <td className="px-4 py-4 font-medium text-gray-900 dark:text-gray-100">{c.patient_id}</td>
-                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">Dr. M. Abebe</td>
+                                            <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{c.radiologist_review?.radiologist_id ? `Radiologist on file` : '—'}</td>
                                             <td className="px-4 py-4 text-gray-500 dark:text-gray-400">
                                                 {c.radiologist_review ? format(new Date(c.radiologist_review.reviewed_at), 'h:mm a (MMM d)') : '-'}
                                             </td>

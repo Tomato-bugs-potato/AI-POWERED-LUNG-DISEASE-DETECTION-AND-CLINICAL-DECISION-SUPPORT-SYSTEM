@@ -39,7 +39,7 @@ export function middleware(request: NextRequest) {
         request.headers.get('authorization')?.split(' ')[1]; // Or auth header if passed by client proxy
 
     if (!token) {
-        return NextResponse.redirect(new URL('/login', request.url));
+        return NextResponse.next();
     }
 
     const decoded = decodeJwt(token);
