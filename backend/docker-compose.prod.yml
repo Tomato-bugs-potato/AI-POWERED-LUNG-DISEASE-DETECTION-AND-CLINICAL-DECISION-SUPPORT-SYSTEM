@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lung_network
+
+  postgres:
+    image: bitnami/postgresql:latest
+    container_name: lung_db
+    restart: always
+    environment:
+      POSTGRESQL_USERNAME: user
+      POSTGRESQL_PASSWORD: password
+      POSTGRESQL_DATABASE: lungdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/bitnami/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d lungdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lung_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lung_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lung_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lung_celery_worker
+    restart: always
+    command: celery -A app.workers.celery_app worker --loglevel=info -Q celery,inference,reports,emails,backups
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - lung_network
+      
+  nginx:
+    image: nginx:alpine
+    container_name: lung_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+    networks:
+      - lung_network
+
+networks:
+  lung_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
