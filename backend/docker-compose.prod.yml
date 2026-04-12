@@ -84,6 +84,21 @@ services:
     networks:
       - lung_network
 
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    container_name: lung_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - lung_network
+
 networks:
   lung_network:
     driver: bridge
