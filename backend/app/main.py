@@ -41,7 +41,13 @@ async def lifespan(app: FastAPI):
     from sqlalchemy import select
     
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.run_sync(Base.metadata.create_all)
+        except Exception as e:
+            logger.warning(f"create_all partial failure (safe to ignore on restart): {e}")
+            await conn.rollback()
+            # Retry with checkfirst — handles pre-existing enum types
+            await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
 
         if settings.SEED_TEST_USERS:
             async with async_session_maker() as session:
