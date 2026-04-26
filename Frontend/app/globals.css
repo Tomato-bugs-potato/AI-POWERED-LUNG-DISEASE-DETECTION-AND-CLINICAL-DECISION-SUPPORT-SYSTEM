@@ -75,8 +75,9 @@
   --sidebar-ring: oklch(0.58 0.16 250);
 }
 
+
 @theme inline {
-  --font-sans: "Inter", "Geist Fallback";
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -137,8 +138,7 @@
   }
 
   body {
-    @apply text-foreground;
-    font-family: 'Nunito', sans-serif;
+    @apply text-foreground font-sans;
   }
 
   .bg-premium-gradient {
@@ -146,21 +146,27 @@
     background-attachment: fixed;
   }
 
-   .card-premium-pocket {
-    @apply bg-[#D9E1E1] dark:bg-zinc-800/80 rounded-[3rem] border-none relative transition-all duration-300;
-    mask-image: radial-gradient(circle 40px at 100% 0%, transparent 40px, black 41px);
-    -webkit-mask-image: radial-gradient(circle 40px at 100% 0%, transparent 40px, black 41px);
+  .card-premium-pocket {
+    @apply bg-[#D9E1E1] dark:bg-zinc-800/80 rounded-[1.5rem] sm:rounded-[3rem] border-none relative transition-all duration-300;
+     border-top-right-radius: 3rem;
+     mask-image: radial-gradient(circle 24px at 100% 0%, transparent 24px, black 24.5px);
+    -webkit-mask-image: radial-gradient(circle 24px at 100% 0%, transparent 24px, black 24.5px);
+  }
+
+  @media (min-width: 640px) {
+    .card-premium-pocket {
+      border-top-right-radius: 5.75rem;
+      mask-image: radial-gradient(circle 38px at 100% 0%, transparent 38px, black 38.5px);
+      -webkit-mask-image: radial-gradient(circle 38px at 100% 0%, transparent 38px, black 38.5px);
+    }
   }
 
   .card-push-container {
     @apply relative overflow-visible h-full flex flex-col;
   }
 
-  .card-overlap-btn-pocket {
-    @apply absolute -top-1 -right-1 w-12 h-12 rounded-full bg-white flex items-center justify-center text-[#9EBDBE] z-20 transition-transform hover:scale-105 shadow-sm;
-  }
-
+   
   .sub-card-white {
-    @apply bg-white dark:bg-zinc-900 rounded-[2rem] p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100/20 flex flex-col justify-center;
+    @apply bg-white dark:bg-zinc-900 rounded-[1.25rem] sm:rounded-[2rem] p-3 sm:p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100/20 flex flex-col justify-center;
   }
 }

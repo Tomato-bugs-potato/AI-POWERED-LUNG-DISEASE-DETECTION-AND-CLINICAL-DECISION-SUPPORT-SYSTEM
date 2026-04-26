@@ -10,7 +10,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci --frozen-lockfile
 
 # Stage 2 — Build
 FROM node:20-alpine AS builder
@@ -27,9 +27,6 @@ ARG NEXT_PUBLIC_APP_VERSION=1.0.0
 ARG NEXT_PUBLIC_DEFAULT_LANGUAGE=en
 ARG NEXT_PUBLIC_ENABLE_GRADCAM=true
 ARG NEXT_PUBLIC_ENABLE_ONBOARDING=true
-ARG NEXT_PUBLIC_EMAILJS_SERVICE_ID=""
-ARG NEXT_PUBLIC_EMAILJS_TEMPLATE_ID=""
-ARG NEXT_PUBLIC_EMAILJS_PUBLIC_KEY=""
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

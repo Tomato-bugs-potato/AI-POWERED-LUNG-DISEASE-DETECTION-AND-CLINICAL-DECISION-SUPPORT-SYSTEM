@@ -1,10 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Geist_Mono } from "next/font/google"
+import { Nunito, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const _inter = Inter({ subsets: ["latin"] })
+const nunito = Nunito({ 
+  subsets: ["latin"],
+  variable: "--font-nunito",
+})
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
@@ -35,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+      <body className={`${nunito.variable} font-sans antialiased text-foreground`}>
         <QueryProvider>
           {children}
           <Toaster position="top-right" richColors />

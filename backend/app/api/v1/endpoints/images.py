@@ -115,14 +115,11 @@ async def upload_image(
         await db.commit()
         await db.refresh(db_img)
 
-        # Capture values BEFORE any further commits can expire the session
-        saved_image_id = db_img.image_id
-
         await log_action(
             db, AuditAction.IMAGE_UPLOADED,
             user_id=current_user.user_id,
             case_id=case_id,
-            details={"image_id": str(saved_image_id), "format": format_enum.value, "size_bytes": len(file_bytes)},
+            details={"image_id": str(db_img.image_id), "format": format_enum.value, "size_bytes": len(file_bytes)},
         )
 
         # Trigger AI inference (non-blocking)
@@ -158,7 +155,7 @@ async def upload_image(
 
                 inference_record = InferenceResult(
                     inference_id=inference_id,
-                    image_id=saved_image_id,
+                    image_id=db_img.image_id,
                     model_version=ai_data.get("model_version", "unknown"),
                     processing_time_sec=ai_data.get("processing_time_sec"),
                     predictions=ai_data.get("predictions", []),
@@ -180,7 +177,7 @@ async def upload_image(
         except Exception as e:
             print(f"[UPLOAD] AI inference failed (non-critical): {type(e).__name__}: {e}", flush=True)
 
-        return ImageUploadResponse(image_id=saved_image_id, case_id=case_id)
+        return ImageUploadResponse(image_id=db_img.image_id, case_id=case_id)
 
     except HTTPException:
         raise
