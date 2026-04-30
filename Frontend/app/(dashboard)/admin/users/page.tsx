@@ -1,6 +1,8 @@
 import { serverApi } from '@/lib/server-api';
 import { UsersDashboardView } from '@/components/dashboard/admin/UsersDashboardView';
 
+export const dynamic = 'force-dynamic';
+
 const fetchUsers = async () => {
     try {
         const response = await serverApi.get('/users');
