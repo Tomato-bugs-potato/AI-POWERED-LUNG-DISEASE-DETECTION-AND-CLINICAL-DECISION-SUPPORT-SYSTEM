@@ -57,13 +57,18 @@ const fetchDiagnosisDetails = async (id: string) => {
         let imageUrl = '';
         const firstImage = c.images?.[0];
         if (firstImage?.image_id) {
-            try {
-                const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
-                    responseType: 'blob',
-                });
-                imageUrl = URL.createObjectURL(imgRes.data);
-            } catch {
-                imageUrl = firstImage.file_url ? `http://localhost:9000/xray-images/${firstImage.file_url}` : '';
+            if (typeof window !== 'undefined') {
+                try {
+                    const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
+                        responseType: 'blob',
+                    });
+                    imageUrl = URL.createObjectURL(imgRes.data);
+                } catch {
+                    imageUrl = '';
+                }
+            } else {
+                // During SSR, just leave it blank to avoid createObjectURL crash
+                imageUrl = '';
             }
         }
         let inferenceResults = firstImage?.inference_results?.[0]?.predictions || [];

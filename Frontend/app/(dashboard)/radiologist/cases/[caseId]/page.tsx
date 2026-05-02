@@ -38,13 +38,17 @@ const fetchCaseDetails = async (id: string): Promise<Case> => {
         let imageUrl = '';
         const firstImage = c.images?.[0];
         if (firstImage?.image_id) {
-            try {
-                const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
-                    responseType: 'blob',
-                });
-                imageUrl = URL.createObjectURL(imgRes.data);
-            } catch {
-                imageUrl = firstImage.file_url ? `http://localhost:9000/xray-images/${firstImage.file_url}` : '';
+            if (typeof window !== 'undefined') {
+                try {
+                    const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
+                        responseType: 'blob',
+                    });
+                    imageUrl = URL.createObjectURL(imgRes.data);
+                } catch {
+                    imageUrl = '';
+                }
+            } else {
+                imageUrl = '';
             }
         }
 
@@ -64,13 +68,17 @@ const fetchCaseDetails = async (id: string): Promise<Case> => {
                 inferenceData = newFirstImage.inference_results?.[0];
                 // Refresh image URL via proxy if not already set
                 if (!imageUrl && newFirstImage.image_id) {
-                    try {
-                        const imgRes = await api.get(`/images/${newFirstImage.image_id}/proxy`, {
-                            responseType: 'blob',
-                        });
-                        imageUrl = URL.createObjectURL(imgRes.data);
-                    } catch {
-                        imageUrl = newFirstImage.file_url ? `http://localhost:9000/xray-images/${newFirstImage.file_url}` : imageUrl;
+                    if (typeof window !== 'undefined') {
+                        try {
+                            const imgRes = await api.get(`/images/${newFirstImage.image_id}/proxy`, {
+                                responseType: 'blob',
+                            });
+                            imageUrl = URL.createObjectURL(imgRes.data);
+                        } catch {
+                            imageUrl = '';
+                        }
+                    } else {
+                        imageUrl = '';
                     }
                 }
             }
