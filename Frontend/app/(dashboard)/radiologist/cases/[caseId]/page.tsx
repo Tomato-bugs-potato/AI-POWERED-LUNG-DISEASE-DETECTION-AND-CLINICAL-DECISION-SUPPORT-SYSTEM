@@ -24,7 +24,7 @@ import api from '@/lib/api';
 const CLASS_COLORS: Record<string, string> = {
     'Pneumonia': 'bg-red-500',
     'Tuberculosis': 'bg-yellow-500',
-    'Lung_Tumor': 'bg-orange-500',
+    'Lung Tumor': 'bg-orange-500',
     'Normal': 'bg-green-500',
     'Other': 'bg-blue-500',
 };

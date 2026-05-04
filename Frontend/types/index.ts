@@ -46,7 +46,7 @@ export interface Image {
     format: 'PNG' | 'JPG' | 'JPEG' | 'DICOM';
 }
 
-export type DiseaseClass = 'Pneumonia' | 'Tuberculosis' | 'Lung_Tumor' | 'Normal' | 'Other';
+export type DiseaseClass = 'Pneumonia' | 'Tuberculosis' | 'Lung Tumor' | 'Lung_Tumor' | 'Normal' | 'Other';
 
 export interface BoundingBox {
     x: number;
