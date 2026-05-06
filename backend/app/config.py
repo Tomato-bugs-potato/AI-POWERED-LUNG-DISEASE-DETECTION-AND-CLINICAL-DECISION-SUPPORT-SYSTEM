@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # AI Service
     AI_SERVICE_URL: str
-    AI_INFERENCE_TIMEOUT_SECONDS: int = 12
+    AI_INFERENCE_TIMEOUT_SECONDS: int = 120
     AI_INTERNAL_API_KEY: str
     AI_MODEL_VERSION: str = "v1.0.0"
 

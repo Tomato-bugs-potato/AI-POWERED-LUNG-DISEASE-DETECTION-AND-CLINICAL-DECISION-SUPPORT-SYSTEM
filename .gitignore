@@ -110,3 +110,5 @@ Desktop.ini
 
 .claude/
 Docs
+*.pem
+*.pem.key
