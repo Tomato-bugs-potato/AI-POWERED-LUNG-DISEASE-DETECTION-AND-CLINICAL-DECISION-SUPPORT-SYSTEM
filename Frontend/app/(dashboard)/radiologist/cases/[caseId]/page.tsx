@@ -29,95 +29,15 @@ const CLASS_COLORS: Record<string, string> = {
     'Other': 'bg-blue-500',
 };
 
-const fetchCaseDetails = async (id: string): Promise<Case> => {
-    try {
-        const response = await api.get(`/cases/${id}`);
-        const c = response.data;
+const fetchCaseMeta = async (id: string): Promise<any> => {
+    const response = await api.get(`/cases/${id}`);
+    return response.data;
+};
 
-        // Fetch image bytes through API proxy (includes JWT auth), create blob URL for canvas
-        let imageUrl = '';
-        const firstImage = c.images?.[0];
-        if (firstImage?.image_id) {
-            if (typeof window !== 'undefined') {
-                try {
-                    const imgRes = await api.get(`/images/${firstImage.image_id}/proxy`, {
-                        responseType: 'blob',
-                    });
-                    imageUrl = URL.createObjectURL(imgRes.data);
-                } catch {
-                    imageUrl = '';
-                }
-            } else {
-                imageUrl = '';
-            }
-        }
-
-        // Polling for inference results — AI inference is async so we retry with backoff
-        let inferenceData = firstImage?.inference_results?.[0];
-        let attempts = 0;
-        const maxAttempts = 30; // up to ~60 seconds total
-
-        while (!inferenceData && attempts < maxAttempts) {
-            const delay = attempts < 5 ? 1000 : 2000; // 1s for first 5, then 2s
-            await new Promise(resolve => setTimeout(resolve, delay));
-            const retryResponse = await api.get(`/cases/${id}`);
-            const retryC = retryResponse.data;
-
-            const newFirstImage = retryC.images?.[0];
-            if (newFirstImage) {
-                inferenceData = newFirstImage.inference_results?.[0];
-                // Refresh image URL via proxy if not already set
-                if (!imageUrl && newFirstImage.image_id) {
-                    if (typeof window !== 'undefined') {
-                        try {
-                            const imgRes = await api.get(`/images/${newFirstImage.image_id}/proxy`, {
-                                responseType: 'blob',
-                            });
-                            imageUrl = URL.createObjectURL(imgRes.data);
-                        } catch {
-                            imageUrl = '';
-                        }
-                    } else {
-                        imageUrl = '';
-                    }
-                }
-            }
-            attempts++;
-        }
-
-        const predictions = (inferenceData?.predictions || []).map((p: any, idx: number) => ({
-            id: `pred-${idx}`,
-            disease_class: p.disease_class || 'Unknown',
-            confidence_score: p.confidence_score || 0,
-            bounding_box: p.bounding_box || { x: 0, y: 0, w: 0, h: 0 },
-            is_false_positive: false,
-        }));
-
-        return {
-            case_id: c.case_id,
-            patient_id: c.patient_id,
-            status: c.status,
-            priority: c.priority || 'Non_Critical',
-            upload_date: c.created_at || new Date().toISOString(),
-            image: firstImage ? { image_id: firstImage.image_id, file_url: imageUrl, upload_date: firstImage.uploaded_at || '', format: firstImage.file_format || 'DICOM' } : { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
-            inference_result: {
-                inference_id: inferenceData?.inference_id || '',
-                model_version: inferenceData?.model_version || '',
-                processing_time_ms: (inferenceData?.processing_time_sec || 0) * 1000,
-                predictions,
-            },
-        };
-    } catch {
-        return {
-            case_id: id,
-            patient_id: 'Unknown',
-            status: 'Pending_Review',
-            priority: 'Non_Critical',
-            upload_date: new Date().toISOString(),
-            image: { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
-            inference_result: { inference_id: '', model_version: '', processing_time_ms: 0, predictions: [] },
-        };
-    }
+const fetchImageBlobUrl = async (imageId: string): Promise<string> => {
+    if (typeof window === 'undefined') return '';
+    const imgRes = await api.get(`/images/${imageId}/proxy`, { responseType: 'blob' });
+    return URL.createObjectURL(imgRes.data);
 };
 
 export default function ReviewPredictionsPage() {

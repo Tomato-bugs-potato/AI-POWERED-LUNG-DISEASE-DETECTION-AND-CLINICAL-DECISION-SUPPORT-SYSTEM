@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Search, Activity, CheckCircle2, TrendingUp, AlertCircle, Users } from 'lucide-react';
+import { Search, Activity, CheckCircle2, TrendingUp, AlertCircle, Users, ArrowUpRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
         queryKey: ['doctor-dashboard-data'],
         queryFn: fetchDoctorDashboardData,
         initialData,
-        refetchInterval: 30000, 
+        refetchInterval: 30000,
     });
 
     const pendingCases = data?.pending || [];
@@ -76,26 +76,26 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
         <div className="space-y-8 pb-10">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight text-black dark:text-white">
+                    <h1 className="text-2xl font-black tracking-tight text-[#1C2222] dark:text-white">
                         Welcome, {user?.name || 'Dr. Endashaw'}
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Here is your diagnosis queue and daily summary.</p>
+                    <p className="text-[#1C2222]/40 mt-1 font-medium">Here is your diagnosis queue and daily summary.</p>
                 </div>
 
                 <form onSubmit={handleSearch} className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                         placeholder="Quick patient search..."
-                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-none shadow-sm rounded-xl focus:ring-teal-500/20"
+                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-[#1C2222]/10 shadow-sm rounded-xl focus:ring-[#4BA0A2]/20"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </form>
             </div>
 
-            <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-[2rem] p-6 lg:p-8">
+            <div className="rounded-[2rem] p-6 lg:p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-[1.3rem] font-extrabold text-[#334155] dark:text-gray-100">Clinical Summary</h2>
+                    <h2 className="text-xl font-black text-[#1C2222] dark:text-gray-100">Statistical Summary</h2>
                 </div>
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -103,8 +103,11 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
                     <div className="card-push-container">
 
                         <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="mb-6">
-                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Pending Diagnosis</p>
+                            <div className="flex items-center justify-between mb-4">
+                                <p className="text-sm font-extrabold text-[#1C2222]/70">Pending Diagnosis</p>
+                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                            </div>
+                            <div className="mb-4">
                                 <Select defaultValue="today">
                                     <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                         <SelectValue />
@@ -150,8 +153,11 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
 
 
                         <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="mb-6">
-                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Completed Cases</p>
+                            <div className="flex items-center justify-between mb-4">
+                                <p className="text-sm font-extrabold text-[#1C2222]/70">Completed Cases</p>
+                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                            </div>
+                            <div className="mb-4">
                                 <Select defaultValue="today">
                                     <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                         <SelectValue />
@@ -197,8 +203,11 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
 
 
                         <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="mb-6">
-                                <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Case Overview</p>
+                            <div className="flex items-center justify-between mb-4">
+                                <p className="text-sm font-extrabold text-[#1C2222]/70">Case Overview</p>
+                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                            </div>
+                            <div className="mb-4">
                                 <Select defaultValue="week">
                                     <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                         <SelectValue />
@@ -241,16 +250,16 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
                 </div>
             </div>
 
-             <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-[2rem] p-6 lg:p-8">
+            <div className="card-premium-pocket p-6 lg:p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-[1.3rem] font-extrabold text-[#334155] dark:text-gray-100">Needs Diagnosis</h2>
+                    <h2 className="text-lg font-extrabold text-[#1C2222] dark:text-gray-100">Needs Diagnosis</h2>
                 </div>
 
 
                 {pendingCases && pendingCases.length > 0 ? (
                     <div className="overflow-x-auto w-full">
                         <table className="w-full text-sm text-left border-collapse border-spacing-0">
-                            <thead className="text-[10px] text-black uppercase bg-gray-200 font-black tracking-widest border-b border-gray-200">
+                            <thead className="text-[10px] text-[#1C2222]/40 uppercase font-bold tracking-widest border-b border-[#1C2222]/5">
                                 <tr className="divide-x divide-gray-100">
                                     <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Patient ID</th>
                                     <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Department</th>
@@ -259,11 +268,11 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
                                     <th scope="col" className="px-4 py-3.5 text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-[#1C2222]/5">
                                 {pendingCases.map((c: any) => (
                                     <tr
                                         key={c.case_id}
-                                        className={`bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-none divide-x divide-gray-100 ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
+                                        className={`hover:bg-white/40 transition-colors ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
                                     >
                                         <td className="px-4 py-3">
                                             <div className="font-bold text-black dark:text-gray-100 leading-tight">{c.patient_id.substring(0, 8)}...</div>
@@ -301,12 +310,12 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
                         </table>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-[1.5rem] p-8 shadow-sm text-center">
-                        <div className="mx-auto w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mb-3">
-                            <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    <div className="text-center py-10">
+                        <div className="mx-auto w-14 h-14 rounded-full bg-[#4BA0A2]/15 flex items-center justify-center mb-3">
+                            <CheckCircle2 className="h-6 w-6 text-[#4BA0A2]" />
                         </div>
-                        <h3 className="text-sm font-extrabold text-[#334155] dark:text-white">All caught up</h3>
-                        <p className="text-sm text-gray-500 mt-1">No pending diagnoses in your queue.</p>
+                        <h3 className="text-sm font-extrabold text-[#1C2222]">All caught up</h3>
+                        <p className="text-sm text-[#1C2222]/40 mt-1 font-medium">No pending diagnoses in your queue.</p>
                     </div>
                 )}
             </div>

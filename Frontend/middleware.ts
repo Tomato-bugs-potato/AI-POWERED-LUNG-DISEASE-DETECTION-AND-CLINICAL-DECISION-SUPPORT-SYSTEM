@@ -30,7 +30,7 @@ export function middleware(request: NextRequest) {
     }
 
     // Allow auth routes to skip token check if unauthenticated
-    if (pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/verify-otp') {
+    if (pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/verify-otp' || pathname === '/reset-password') {
         return NextResponse.next();
     }
 

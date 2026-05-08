@@ -239,10 +239,10 @@ export default function UploadXrayPage() {
         <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-black tracking-tight text-[#1C2222] dark:text-white">
                         Upload X-ray
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Register patient details and upload medical imagery for AI analysis.</p>
+                    <p className="text-[#1C2222]/40 mt-1 font-medium">Register patient details and upload medical imagery for AI analysis.</p>
                 </div>
             </div>
 
@@ -284,7 +284,7 @@ export default function UploadXrayPage() {
                                                             onClick={() => { setSelectedPatient(p); setIsNewRegistration(false); }}
                                                         >
                                                             <div className="flex items-center gap-3">
-                                                                <div className="bg-blue-100 text-blue-700 p-2 rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                                                <div className="bg-[#4BA0A2]/20 text-[#4BA0A2] p-2 rounded-full">
                                                                     <User className="h-4 w-4" />
                                                                 </div>
                                                                 <div>
@@ -300,7 +300,7 @@ export default function UploadXrayPage() {
                                         </>
                                     ) : (
                                         <div className="space-y-4">
-                                            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-900/20 p-4 relative">
+                                            <div className="rounded-lg border border-[#4BA0A2]/20 bg-[#4BA0A2]/5 dark:border-[#4BA0A2]/30 dark:bg-[#4BA0A2]/10 p-4 relative">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -310,12 +310,12 @@ export default function UploadXrayPage() {
                                                     <X className="h-3 w-3" />
                                                 </Button>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="bg-blue-100 text-blue-700 p-2 rounded-full dark:bg-blue-800 dark:text-blue-200">
+                                                    <div className="bg-[#4BA0A2]/20 text-[#4BA0A2] p-2 rounded-full dark:bg-[#4BA0A2]/30">
                                                         <User className="h-5 w-5" />
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-medium text-blue-900 dark:text-blue-100">{selectedPatient.patient_id}</h3>
-                                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                        <h3 className="font-bold text-[#1C2222] dark:text-white">{selectedPatient.patient_id}</h3>
+                                                        <p className="text-sm text-[#1C2222]/50">
                                                             {selectedPatient.age} yrs • {selectedPatient.sex} • Reg: {selectedPatient.registered_at ? format(new Date(selectedPatient.registered_at), 'MMM yyyy') : 'Unknown'}
                                                         </p>
                                                     </div>
@@ -512,7 +512,7 @@ export default function UploadXrayPage() {
                         </CardContent>
                         <CardFooter className="pt-2 border-t mt-auto">
                             <Button
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-xl font-bold"
                                 size="lg"
                                 disabled={
                                     !file ||

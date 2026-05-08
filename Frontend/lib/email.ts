@@ -93,3 +93,22 @@ export async function sendRoleChangeEmail(params: {
         time: 'now',
     });
 }
+
+/**
+ * Send a password-reset link to the user's email via EmailJS.
+ * Uses the same template — passcode field shows the reset link.
+ * The link expires in 15 minutes (matches backend Redis TTL).
+ */
+export async function sendResetEmail(params: {
+    email: string;
+    resetToken: string;
+}): Promise<void> {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const resetLink = `${baseUrl}/reset-password?token=${params.resetToken}`;
+    await sendEmail({
+        email: params.email,
+        passcode: resetLink,
+        time: expiryTime(15),
+        reply_to: params.email,
+    });
+}

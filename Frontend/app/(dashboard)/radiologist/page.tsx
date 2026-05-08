@@ -3,10 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Upload, Activity, Clock, CheckCircle2 } from 'lucide-react';
+import { Upload, Activity, Clock, CheckCircle2, ArrowUpRight, Maximize2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthStore } from '@/store';
@@ -49,18 +48,18 @@ const fetchAllCases = async (): Promise<Case[]> => {
 
 const getStatusBadge = (status: CaseStatus) => {
     switch (status) {
-        case 'Pending_Review': return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Pending</Badge>;
-        case 'In_Review': return <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">In Review</Badge>;
-        case 'Ready_for_Diagnosis': return <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Ready for Doctor</Badge>;
-        default: return <Badge variant="outline">{status.replace('_', ' ')}</Badge>;
+        case 'Pending_Review': return <Badge className="bg-[#1C2222]/10 text-[#1C2222] border-0 font-bold rounded-full px-3">Pending</Badge>;
+        case 'In_Review': return <Badge className="bg-[#4BA0A2]/15 text-[#4BA0A2] border-0 font-bold rounded-full px-3">In Review</Badge>;
+        case 'Ready_for_Diagnosis': return <Badge className="bg-amber-100 text-amber-700 border-0 font-bold rounded-full px-3">Ready for Doctor</Badge>;
+        default: return <Badge className="bg-gray-100 text-gray-600 border-0 font-bold rounded-full px-3">{status.replace('_', ' ')}</Badge>;
     }
 };
 
 const getPriorityBadge = (priority: UrgencyLevel) => {
     if (priority === 'Critical') {
-        return <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-100 border-0">Critical</Badge>;
+        return <Badge className="bg-red-100 text-red-700 border-0 font-bold rounded-full px-3">Critical</Badge>;
     }
-    return <Badge variant="secondary" className="bg-gray-100 text-gray-800 hover:bg-gray-100">Routine</Badge>;
+    return <Badge className="bg-gray-100 text-gray-600 border-0 font-bold rounded-full px-3">Routine</Badge>;
 };
 
 export default function RadiologistDashboard() {
@@ -92,14 +91,15 @@ export default function RadiologistDashboard() {
 
     return (
         <div className="space-y-6">
+            {/* ─── Header ─── */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-black tracking-tight text-[#1C2222]">
                         Welcome, {user?.name || 'Radiologist'}
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Here is the overview of your current queue.</p>
+                    <p className="text-[#1C2222]/40 mt-1 font-medium">Here is the overview of your current queue.</p>
                 </div>
-                <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button asChild className="bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-full px-6 font-bold shadow-lg">
                     <Link href="/radiologist/upload">
                         <Upload className="mr-2 h-4 w-4" />
                         Upload New X-ray
@@ -107,108 +107,153 @@ export default function RadiologistDashboard() {
                 </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">Pending Review</CardTitle>
-                        <Clock className="h-4 w-4 text-orange-500" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{pendingCount}</div>
-                        )}
-                        <p className="text-xs text-gray-400 mt-1">Cases awaiting review</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">In Review</CardTitle>
-                        <Activity className="h-4 w-4 text-blue-500" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{inReviewCount}</div>
-                        )}
-                        <p className="text-xs text-gray-400 mt-1">Currently being reviewed</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium text-gray-500">Completed Today</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        {statsLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white">{completedTodayCount}</div>
-                        )}
-                        <p className="text-xs text-gray-400 mt-1">Sent to doctor today</p>
-                    </CardContent>
-                </Card>
+            {/* ─── Statistical Summary (Inspiro Style) ─── */}
+            <div>
+                <h2 className="text-xl font-black text-[#1C2222] mb-4">Statistical Summary</h2>
+                <div className="grid gap-4 md:grid-cols-3">
+                    {/* Pending Review Card */}
+                    <div className="card-premium-pocket p-5 sm:p-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-extrabold text-[#1C2222]/70">Pending Review</h3>
+                            <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center">
+                                <ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="px-3 py-1 rounded-full bg-white/80 text-xs font-bold text-[#1C2222]/50 border border-[#1C2222]/10">
+                                Week ▿
+                            </span>
+                        </div>
+                        <div className="sub-card-white !rounded-2xl">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[#1C2222]/40">Cases awaiting review</span>
+                                <Maximize2 className="w-3.5 h-3.5 text-[#1C2222]/20" />
+                            </div>
+                            <div className="flex items-center gap-2.5 mt-2">
+                                <Clock className="w-4 h-4 text-amber-500" />
+                                {statsLoading ? (
+                                    <Skeleton className="h-8 w-16 rounded-xl" />
+                                ) : (
+                                    <span className="text-2xl font-black text-[#1C2222]">{pendingCount}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* In Review Card */}
+                    <div className="card-premium-pocket p-5 sm:p-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-extrabold text-[#1C2222]/70">Active Reviews</h3>
+                            <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center">
+                                <ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="px-3 py-1 rounded-full bg-white/80 text-xs font-bold text-[#1C2222]/50 border border-[#1C2222]/10">
+                                Week ▿
+                            </span>
+                        </div>
+                        <div className="sub-card-white !rounded-2xl">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[#1C2222]/40">Currently being reviewed</span>
+                                <Maximize2 className="w-3.5 h-3.5 text-[#1C2222]/20" />
+                            </div>
+                            <div className="flex items-center gap-2.5 mt-2">
+                                <Activity className="w-4 h-4 text-[#4BA0A2]" />
+                                {statsLoading ? (
+                                    <Skeleton className="h-8 w-16 rounded-xl" />
+                                ) : (
+                                    <span className="text-2xl font-black text-[#1C2222]">{inReviewCount}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Completed Today Card */}
+                    <div className="card-premium-pocket p-5 sm:p-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-extrabold text-[#1C2222]/70">Completed Today</h3>
+                            <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center">
+                                <ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="px-3 py-1 rounded-full bg-white/80 text-xs font-bold text-[#1C2222]/50 border border-[#1C2222]/10">
+                                Today ▿
+                            </span>
+                        </div>
+                        <div className="sub-card-white !rounded-2xl">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[#1C2222]/40">Sent to doctor today</span>
+                                <Maximize2 className="w-3.5 h-3.5 text-[#1C2222]/20" />
+                            </div>
+                            <div className="flex items-center gap-2.5 mt-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                {statsLoading ? (
+                                    <Skeleton className="h-8 w-16 rounded-xl" />
+                                ) : (
+                                    <span className="text-2xl font-black text-[#1C2222]">{completedTodayCount}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recent Cases Queue</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="space-y-3">
-                            {[...Array(4)].map((_, i) => (
-                                <Skeleton key={i} className="h-12 w-full" />
-                            ))}
-                        </div>
-                    ) : cases.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-zinc-900/50">
-                                    <tr>
-                                        <th scope="col" className="px-4 py-3 font-medium rounded-tl-lg">Case ID</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Patient ID</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Uploaded At</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                                        <th scope="col" className="px-4 py-3 font-medium">Priority</th>
-                                        <th scope="col" className="px-4 py-3 font-medium rounded-tr-lg">Action</th>
+            {/* ─── Cases Queue (Inspiro Table Style) ─── */}
+            <div className="card-premium-pocket p-5 sm:p-8">
+                <h2 className="text-lg font-extrabold text-[#1C2222] mb-5">Recent Cases Queue</h2>
+                {isLoading ? (
+                    <div className="space-y-3">
+                        {[...Array(4)].map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                        ))}
+                    </div>
+                ) : cases.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-[#1C2222]/40 uppercase font-bold">
+                                <tr className="border-b border-[#1C2222]/5">
+                                    <th scope="col" className="px-4 py-3">Case ID</th>
+                                    <th scope="col" className="px-4 py-3">Patient ID</th>
+                                    <th scope="col" className="px-4 py-3">Uploaded At</th>
+                                    <th scope="col" className="px-4 py-3">Status</th>
+                                    <th scope="col" className="px-4 py-3">Priority</th>
+                                    <th scope="col" className="px-4 py-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#1C2222]/5">
+                                {cases.map((c) => (
+                                    <tr key={c.case_id} className="hover:bg-white/40 transition-colors">
+                                        <td className="px-4 py-3 font-bold text-[#1C2222]">{c.case_id}</td>
+                                        <td className="px-4 py-3 text-[#1C2222]/60 font-medium">{c.patient_id}</td>
+                                        <td className="px-4 py-3 text-[#1C2222]/40 font-medium">
+                                            {format(new Date(c.upload_date), 'MMM d, h:mm a')}
+                                        </td>
+                                        <td className="px-4 py-3">{getStatusBadge(c.status)}</td>
+                                        <td className="px-4 py-3">{getPriorityBadge(c.priority)}</td>
+                                        <td className="px-4 py-3">
+                                            <Button asChild size="sm" className="bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-full px-5 font-bold text-xs">
+                                                <Link href={`/radiologist/cases/${c.case_id}`}>
+                                                    Review
+                                                </Link>
+                                            </Button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {cases.map((c) => (
-                                        <tr key={c.case_id} className="hover:bg-gray-50/50 dark:hover:bg-zinc-900/50 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{c.case_id}</td>
-                                            <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{c.patient_id}</td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                                                {format(new Date(c.upload_date), 'MMM d, h:mm a')}
-                                            </td>
-                                            <td className="px-4 py-3">{getStatusBadge(c.status)}</td>
-                                            <td className="px-4 py-3">{getPriorityBadge(c.priority)}</td>
-                                            <td className="px-4 py-3">
-                                                <Button asChild variant="outline" size="sm">
-                                                    <Link href={`/radiologist/cases/${c.case_id}`}>
-                                                        Review
-                                                    </Link>
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="text-center py-10">
+                        <div className="mx-auto w-14 h-14 rounded-full bg-[#4BA0A2]/15 flex items-center justify-center mb-3">
+                            <CheckCircle2 className="h-6 w-6 text-[#4BA0A2]" />
                         </div>
-                    ) : (
-                        <div className="text-center py-10">
-                            <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                                <CheckCircle2 className="h-6 w-6 text-black" />
-                            </div>
-                            <h3 className="text-sm font-medium text-gray-900 dark:text-white">All caught up</h3>
-                            <p className="text-sm text-gray-500 mt-1">No pending cases in the queue.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                        <h3 className="text-sm font-extrabold text-[#1C2222]">All caught up</h3>
+                        <p className="text-sm text-[#1C2222]/40 mt-1 font-medium">No pending cases in the queue.</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

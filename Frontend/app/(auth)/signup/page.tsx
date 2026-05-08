@@ -23,7 +23,7 @@ import {
     InputOTPGroup,
     InputOTPSlot,
 } from '@/components/ui/input-otp';
-import { Stethoscope, Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import api from '@/lib/api';
 import { sendOtpEmail } from '@/lib/email';
 
@@ -42,7 +42,6 @@ export default function SignupPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = React.useState(false);
 
-    // Registration OTP state
     const [isOtpSent, setIsOtpSent] = React.useState(false);
     const [otp, setOtp] = React.useState('');
     const [generatedOtp, setGeneratedOtp] = React.useState('');
@@ -59,7 +58,6 @@ export default function SignupPage() {
         },
     });
 
-    // Step 1: Submit Form -> Send OTP
     async function onSubmit(data: SignupFormValues) {
         setIsLoading(true);
 
@@ -90,7 +88,6 @@ export default function SignupPage() {
         }
     }
 
-    // Step 2: Verify OTP -> Create backend account
     async function handleVerifyOtp() {
         if (otp.length !== 6) return;
 
@@ -121,7 +118,6 @@ export default function SignupPage() {
             toast.error('Signup Failed', {
                 description: Array.isArray(errorMessage) ? errorMessage[0] : errorMessage,
             });
-            // Optionally, revert back to step 1 so they can fix their email
             setIsOtpSent(false);
         } finally {
             setIsLoading(false);
@@ -129,27 +125,26 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
+        <div className="min-h-screen bg-premium-gradient flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
             {!isOtpSent ? (
-                // Step 1: Form
                 <>
                     <div className="sm:mx-auto sm:w-full sm:max-w-md">
                         <div className="flex justify-center">
-                            <div className="bg-blue-600 p-3 rounded-full">
-                                <Stethoscope className="w-8 h-8 text-white" />
+                            <div className="bg-[#4BA0A2] w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
+                                <img src="/image.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" />
                             </div>
                         </div>
-                        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                        <h2 className="mt-6 text-center text-2xl font-black tracking-tight text-[#1C2222]">
                             Create an account
                         </h2>
-                        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                        <p className="mt-2 text-center text-sm text-[#1C2222]/50 font-medium">
                             Sign up to request platform access
                         </p>
                     </div>
 
                     <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-[440px]">
-                        <div className="bg-white dark:bg-zinc-900 border border-border sm:rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-8 sm:px-10">
+                        <div className="card-premium-pocket p-0 overflow-hidden">
+                            <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] p-6 sm:p-8 m-1">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                         <FormField
@@ -157,9 +152,9 @@ export default function SignupPage() {
                                             name="name"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Full Name</FormLabel>
+                                                    <FormLabel className="font-bold text-[#1C2222]/70">Full Name</FormLabel>
                                                     <FormControl>
-                                                        <Input disabled={isLoading} placeholder="Dr. John Doe" {...field} />
+                                                        <Input disabled={isLoading} placeholder="Dr. John Doe" className="rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white" {...field} />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
@@ -170,12 +165,13 @@ export default function SignupPage() {
                                             name="email"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Email</FormLabel>
+                                                    <FormLabel className="font-bold text-[#1C2222]/70">Email</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             disabled={isLoading}
                                                             placeholder="doctor@hospital.com"
                                                             type="email"
+                                                            className="rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white"
                                                             {...field}
                                                         />
                                                     </FormControl>
@@ -188,17 +184,17 @@ export default function SignupPage() {
                                             name="role"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Clinical Role</FormLabel>
+                                                    <FormLabel className="font-bold text-[#1C2222]/70">Clinical Role</FormLabel>
                                                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                                                         <FormControl>
-                                                            <SelectTrigger className="w-full">
+                                                            <SelectTrigger className="w-full rounded-xl border-[#1C2222]/10 bg-white/60">
                                                                 <SelectValue placeholder="Select your clinical role" />
                                                             </SelectTrigger>
                                                         </FormControl>
-                                                        <SelectContent className="w-full bg-white dark:bg-zinc-900 border border-border shadow-lg">
-                                                            <SelectItem value="Doctor" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Doctor / Physician</SelectItem>
-                                                            <SelectItem value="Radiologist" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Radiologist</SelectItem>
-                                                            <SelectItem value="Lab_Technician" className="hover:bg-blue-50 dark:hover:bg-zinc-800 focus:bg-blue-50 dark:focus:bg-zinc-800 cursor-pointer">Lab Technician</SelectItem>
+                                                        <SelectContent className="w-full bg-white border border-[#1C2222]/10 shadow-lg rounded-xl">
+                                                            <SelectItem value="Doctor" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Doctor / Physician</SelectItem>
+                                                            <SelectItem value="Radiologist" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Radiologist</SelectItem>
+                                                            <SelectItem value="Lab_Technician" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Lab Technician</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
@@ -210,12 +206,13 @@ export default function SignupPage() {
                                             name="password"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Password</FormLabel>
+                                                    <FormLabel className="font-bold text-[#1C2222]/70">Password</FormLabel>
                                                     <FormControl>
                                                         <Input
                                                             disabled={isLoading}
                                                             placeholder="••••••••"
                                                             type="password"
+                                                            className="rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white"
                                                             {...field}
                                                         />
                                                     </FormControl>
@@ -224,7 +221,7 @@ export default function SignupPage() {
                                             )}
                                         />
 
-                                        <Button className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white" type="submit" disabled={isLoading}>
+                                        <Button className="w-full mt-6 bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-xl font-bold" type="submit" disabled={isLoading}>
                                             {isLoading ? (
                                                 <>
                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -238,9 +235,9 @@ export default function SignupPage() {
                                 </Form>
 
                                 <div className="mt-6">
-                                    <p className="text-center text-sm text-muted-foreground">
+                                    <p className="text-center text-sm text-[#1C2222]/40 font-medium">
                                         Already have an account?{' '}
-                                        <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                                        <Link href="/login" className="font-bold text-[#4BA0A2] hover:text-[#3a8284]">
                                             Sign in
                                         </Link>
                                     </p>
@@ -254,30 +251,27 @@ export default function SignupPage() {
                 <>
                     <div className="sm:mx-auto sm:w-full sm:max-w-md">
                         <div className="flex justify-center">
-                            <div className="bg-blue-600 p-3 rounded-full">
-                                <ShieldCheck className="w-8 h-8 text-white" />
+                            <div className="bg-[#4BA0A2] w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
+                                <ShieldCheck className="w-7 h-7 text-white" />
                             </div>
                         </div>
-                        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                        <h2 className="mt-6 text-center text-2xl font-black tracking-tight text-[#1C2222]">
                             Verify Your Email
                         </h2>
-                        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                        <p className="mt-2 text-center text-sm text-[#1C2222]/50 font-medium">
                             A 6-digit code was sent to {signupPayload?.email}
                         </p>
                     </div>
 
                     <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-[440px]">
-                        <div className="bg-white dark:bg-zinc-900 border border-border sm:rounded-xl shadow-sm overflow-hidden">
-                            <div className="px-4 py-8 sm:px-10 flex flex-col items-center">
+                        <div className="card-premium-pocket p-0 overflow-hidden">
+                            <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] p-6 sm:p-8 m-1 flex flex-col items-center">
                                 <InputOTP
                                     maxLength={6}
                                     value={otp}
                                     onChange={(value) => {
                                         setOtp(value);
                                         setHasError(false);
-                                        if (value.length === 6) {
-                                            // auto trigger isn't required but makes UX better, doing explicitly via button instead or allow both.
-                                        }
                                     }}
                                     disabled={isLoading}
                                     autoFocus
@@ -287,7 +281,7 @@ export default function SignupPage() {
                                             <InputOTPSlot
                                                 key={index}
                                                 index={index}
-                                                className={`w-12 h-14 text-xl border-gray-300 dark:border-gray-700 
+                                                className={`w-12 h-14 text-xl rounded-xl border-[#1C2222]/10 
                                                 ${hasError ? 'border-red-500 text-red-500 ring-red-500 focus-visible:ring-red-500' : ''}`}
                                             />
                                         ))}
@@ -297,7 +291,7 @@ export default function SignupPage() {
                                 <div className="mt-8 mb-6 w-full flex flex-col items-center space-y-4">
                                     <Button
                                         onClick={handleVerifyOtp}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                        className="w-full bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-xl font-bold"
                                         disabled={otp.length !== 6 || isLoading}
                                     >
                                         {isLoading ? (
@@ -312,7 +306,7 @@ export default function SignupPage() {
 
                                     <Button
                                         variant="ghost"
-                                        className="text-sm font-medium text-gray-600 dark:text-gray-400"
+                                        className="text-sm font-bold text-[#1C2222]/50"
                                         onClick={() => setIsOtpSent(false)}
                                         disabled={isLoading}
                                     >

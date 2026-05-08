@@ -5,19 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import Link from 'next/link';
 import { LanguageToggle } from '@/components/auth/LanguageToggle';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-     CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Stethoscope, Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { sendOtpEmail } from '@/lib/email';
 import { setAccessToken } from '@/lib/auth';
@@ -74,11 +68,9 @@ export default function LoginPage() {
 
             const { user_id, otp_code, email } = response.data;
 
-            // Store user_id + email in sessionStorage for the OTP verification page
             if (user_id) sessionStorage.setItem('temp_user_id', user_id);
             if (email) sessionStorage.setItem('temp_email', email);
 
-            // Dispatch OTP email via EmailJS (fire-and-forget — don't block redirect)
             if (otp_code && email) {
                 sendOtpEmail(email, otp_code).catch((err) =>
                     console.error('Failed to send OTP email:', err)
@@ -103,42 +95,43 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
+        <div className="min-h-screen bg-premium-gradient flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
             <div className="absolute top-4 right-4 md:top-8 md:right-8">
                 <LanguageToggle />
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
-                    <div className="bg-blue-600 p-3 rounded-full">
-                        <Stethoscope className="w-8 h-8 text-white" />
+                    <div className="bg-[#4BA0A2] w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
+                        <img src="/image.png" alt="Logo" className="w-full h-full object-cover rounded-2xl" />
                     </div>
                 </div>
-                <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                <h2 className="mt-6 text-center text-2xl font-black tracking-tight text-[#1C2222]">
                     AI Lung Disease Detection
                 </h2>
-                <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+                <p className="mt-2 text-center text-sm text-[#1C2222]/50 font-medium">
                     Sign in to your account to continue
                 </p>
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-[440px]">
-                <Card className="border-border">
-                    <CardHeader className="space-y-1">
-                        <CardTitle className="text-xl">Sign in</CardTitle>
-                        <CardDescription>
-                            Enter your email and password below to login
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <div className="card-premium-pocket p-0 overflow-hidden">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] p-6 sm:p-8 m-1">
+                        <div className="mb-6">
+                            <h3 className="text-xl font-extrabold text-[#1C2222]">Sign in</h3>
+                            <p className="text-sm text-[#1C2222]/40 mt-1 font-medium">
+                                Enter your email and password below to login
+                            </p>
+                        </div>
+
                         {lockedMsg ? (
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4 mb-6">
+                            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
                                 <div className="flex">
-                                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-500 mr-3" />
+                                    <AlertCircle className="h-5 w-5 text-red-600 mr-3 shrink-0 mt-0.5" />
                                     <div>
-                                        <h3 className="text-sm font-medium text-red-800 dark:text-red-400">Account Locked</h3>
-                                        <p className="text-sm text-red-700 dark:text-red-300 mt-1">{lockedMsg}</p>
-                                        <a href="/forgot-password" className="text-sm font-medium text-red-800 dark:text-red-400 hover:underline mt-2 inline-block">
+                                        <h3 className="text-sm font-bold text-red-800">Account Locked</h3>
+                                        <p className="text-sm text-red-700 mt-1">{lockedMsg}</p>
+                                        <a href="/forgot-password" className="text-sm font-bold text-red-800 hover:underline mt-2 inline-block">
                                             Reset your password
                                         </a>
                                     </div>
@@ -148,14 +141,14 @@ export default function LoginPage() {
 
                         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="email" className={errors.email ? "text-red-500" : ""}>Email address</Label>
+                                <Label htmlFor="email" className={`font-bold ${errors.email ? "text-red-500" : "text-[#1C2222]/70"}`}>Email address</Label>
                                 <Input
                                     id="email"
                                     type="email"
                                     autoComplete="email"
                                     aria-invalid={!!errors.email}
                                     aria-describedby={errors.email ? "email-error" : undefined}
-                                    className={errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
+                                    className={`rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                                     {...register("email")}
                                 />
                                 {errors.email && (
@@ -165,8 +158,8 @@ export default function LoginPage() {
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="password" className={errors.password ? "text-red-500" : ""}>Password</Label>
-                                    <a href="/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                                    <Label htmlFor="password" className={`font-bold ${errors.password ? "text-red-500" : "text-[#1C2222]/70"}`}>Password</Label>
+                                    <a href="/forgot-password" className="text-sm font-bold text-[#4BA0A2] hover:text-[#3a8284]">
                                         Forgot Password?
                                     </a>
                                 </div>
@@ -176,6 +169,7 @@ export default function LoginPage() {
                                     error={!!errors.password}
                                     aria-invalid={!!errors.password}
                                     aria-describedby={errors.password ? "password-error" : undefined}
+                                    className="rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white"
                                     {...register("password")}
                                 />
                                 {errors.password && (
@@ -183,11 +177,11 @@ export default function LoginPage() {
                                 )}
 
                                 {errorMsg && !lockedMsg && (
-                                    <p className="text-sm font-medium text-red-500 mt-1">{errorMsg}</p>
+                                    <p className="text-sm font-bold text-red-500 mt-1">{errorMsg}</p>
                                 )}
 
                                 {attemptsLeft !== null && attemptsLeft > 0 && attemptsLeft <= 3 && (
-                                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                                    <p className="text-sm text-amber-600 font-bold">
                                         Warning: You have {attemptsLeft} attempt{attemptsLeft === 1 ? '' : 's'} left.
                                     </p>
                                 )}
@@ -195,7 +189,7 @@ export default function LoginPage() {
 
                             <Button
                                 type="submit"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-[#1C2222] hover:bg-[#2a3333] text-white rounded-xl font-bold mt-2"
                                 disabled={isSubmitting || !!lockedMsg}
                             >
                                 {isSubmitting ? (
@@ -208,8 +202,17 @@ export default function LoginPage() {
                                 )}
                             </Button>
                         </form>
-                    </CardContent>
-                </Card>
+
+                        <div className="mt-6">
+                            <p className="text-center text-sm text-[#1C2222]/40 font-medium">
+                                Don&apos;t have an account?{' '}
+                                <Link href="/signup" className="font-bold text-[#4BA0A2] hover:text-[#3a8284]">
+                                    Sign up
+                                </Link>
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

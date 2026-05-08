@@ -1,6 +1,6 @@
 'use client';
 
- import { Users, Activity, HardDrive, Cpu, Database, AlertCircle, Search } from 'lucide-react';
+import { Users, Activity, HardDrive, Cpu, Database, AlertCircle, Search, ArrowUpRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,34 +23,37 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
         <div className="space-y-6 sm:space-y-8 pb-10">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black dark:text-white">
+                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#1C2222] dark:text-white">
                         System Overview
                     </h1>
-                    <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">Real-time infrastructure and security metrics.</p>
+                    <p className="text-sm sm:text-base text-[#1C2222]/40 mt-1 font-medium">Real-time infrastructure and security metrics.</p>
                 </div>
 
                 <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                         placeholder="Search system metrics..."
-                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-none shadow-sm rounded-xl focus:ring-teal-500/20"
+                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-[#1C2222]/10 shadow-sm rounded-xl focus:ring-[#4BA0A2]/20"
                     />
                 </div>
             </div>
 
             <div className="grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] gap-4 sm:gap-6">
                 <div className="space-y-4 sm:space-y-6">
-                    <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8">
+                    <div className="rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-[1.3rem] font-extrabold text-[#334155] dark:text-gray-100">Statistical Summary</h2>
+                            <h2 className="text-xl font-black text-[#1C2222] dark:text-gray-100">Statistical Summary</h2>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                             {/* Card 1: Patients/Personnel */}
                             <div className="card-push-container">
                                 <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="mb-6">
-                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Number of patients</p>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Number of patients</p>
+                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                                    </div>
+                                    <div className="mb-4">
                                         <Select defaultValue="week">
                                             <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                                 <SelectValue />
@@ -94,8 +97,11 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
                             {/* Card 2: Daily Visit / Cases */}
                             <div className="card-push-container">
                                 <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="mb-6">
-                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Daily Visit</p>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Daily Visit</p>
+                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                                    </div>
+                                    <div className="mb-4">
                                         <Select defaultValue="week">
                                             <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                                 <SelectValue />
@@ -139,8 +145,11 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
                             {/* Card 3: Model Capacity / AI Info */}
                             <div className="card-push-container">
                                 <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="mb-6">
-                                        <p className="text-base font-bold text-[#1C2222] dark:text-gray-100 mb-3">Model Capacity</p>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Model Capacity</p>
+                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
+                                    </div>
+                                    <div className="mb-4">
                                         <Select defaultValue="v2.1">
                                             <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
                                                 <SelectValue />
@@ -184,9 +193,9 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 sm:gap-6">
-                        <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8 relative">
+                        <div className="card-premium-pocket p-3 sm:p-6 lg:p-8 relative">
                             <div className="flex justify-between items-center mb-10">
-                                <h3 className="font-extrabold text-[#334155] dark:text-gray-100 text-[1.1rem]">Storage Trends</h3>
+                                <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">Storage Trends</h3>
                             </div>
 
                             <div className="space-y-6">
@@ -208,9 +217,9 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
                             </div>
                         </div>
 
-                        <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8 relative">
+                        <div className="card-premium-pocket p-3 sm:p-6 lg:p-8 relative">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-extrabold text-[#334155] dark:text-gray-100 text-[1.1rem]">System Modules</h3>
+                                <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">System Modules</h3>
                             </div>
 
                             <div className="bg-white dark:bg-zinc-950 rounded-xl sm:rounded-[1.5rem] p-3 sm:p-5 shadow-sm mt-4">
@@ -236,9 +245,9 @@ export function AdminDashboardView({ stats }: { stats: AdminStats }) {
                     </div>
                 </div>
 
-                <div className="bg-[#F5F8F8] dark:bg-zinc-900 rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8">
+                <div className="card-premium-pocket p-3 sm:p-6 lg:p-8">
                     <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-extrabold text-[#334155] dark:text-gray-100 text-[1.1rem]">System Logs</h3>
+                        <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">System Logs</h3>
                     </div>
 
                     {stats.errorCount > 0 && (

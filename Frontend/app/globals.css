@@ -153,6 +153,11 @@
     -webkit-mask-image: radial-gradient(circle 24px at 100% 0%, transparent 24px, black 24.5px);
   }
 
+  .card-premium-pocket:hover {
+    box-shadow: 0 8px 30px rgba(75, 160, 162, 0.08);
+    transform: translateY(-1px);
+  }
+
   @media (min-width: 640px) {
     .card-premium-pocket {
       border-top-right-radius: 5.75rem;
@@ -169,4 +174,58 @@
   .sub-card-white {
     @apply bg-white dark:bg-zinc-900 rounded-[1.25rem] sm:rounded-[2rem] p-3 sm:p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100/20 flex flex-col justify-center;
   }
+}
+
+/* ─── Micro-Animations ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(75, 160, 162, 0.15); }
+  50% { box-shadow: 0 0 20px 4px rgba(75, 160, 162, 0.08); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out both;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Stagger children animation on the landing page */
+section {
+  animation: fadeInUp 0.6s ease-out both;
+}
+
+section:nth-child(2) { animation-delay: 0.1s; }
+section:nth-child(3) { animation-delay: 0.15s; }
+section:nth-child(4) { animation-delay: 0.2s; }
+section:nth-child(5) { animation-delay: 0.25s; }
+section:nth-child(6) { animation-delay: 0.3s; }
+section:nth-child(7) { animation-delay: 0.35s; }
+section:nth-child(8) { animation-delay: 0.4s; }
+section:nth-child(9) { animation-delay: 0.45s; }
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
