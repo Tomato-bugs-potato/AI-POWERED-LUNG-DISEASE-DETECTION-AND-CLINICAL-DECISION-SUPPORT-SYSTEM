@@ -18,7 +18,12 @@ class InferenceResult(Base):
     model_version: Mapped[str] = mapped_column(String, nullable=False)
     processing_time_sec: Mapped[float | None] = mapped_column(Float, nullable=True)
     predictions: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
-    
+    # Ensemble classifier output (top-1 + per-class probabilities). Nullable —
+    # older inferences without a classifier on top leave this NULL.
+    classification: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Anatomical lung segmentation (list of polygons).
+    lung_segmentation: Mapped[list[list[float]] | None] = mapped_column(JSONB, nullable=True)
+
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     # Relationships

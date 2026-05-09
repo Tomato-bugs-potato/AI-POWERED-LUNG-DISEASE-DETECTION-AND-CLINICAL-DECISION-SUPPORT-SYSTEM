@@ -67,22 +67,32 @@ async def register_patient(
 @router.get("/search", response_model=List[PatientResponse], dependencies=[Depends(require_clinical_staff)])
 async def search_patients(
     patient_id: Optional[str] = None,
+    name: Optional[str] = None,  # For UI compatibility, matches against patient_id prefix
     sex: Optional[str] = None,
     min_age: Optional[int] = None,
     max_age: Optional[int] = None,
+    symptoms: Optional[List[str]] = Query(None),  # FR-25: Multi-symptom search
     skip: int = Query(0, ge=0),
-    limit: int = Query(25, ge=1, le=100),  # FR-25: configurable pagination, default 25
+    limit: int = Query(25, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Patient).options(selectinload(Patient.cases))
+    
     if patient_id:
         stmt = stmt.where(Patient.patient_id.cast(sqlalchemy.String).ilike(f"%{patient_id}%"))
+    if name:
+        # Since we don't store names (NFR-25), we search by ID prefix as a fallback for 'name' search
+        stmt = stmt.where(Patient.patient_id.cast(sqlalchemy.String).ilike(f"%{name}%"))
     if sex:
         stmt = stmt.where(Patient.sex == sex)
     if min_age is not None:
         stmt = stmt.where(Patient.age >= min_age)
     if max_age is not None:
         stmt = stmt.where(Patient.age <= max_age)
+    if symptoms:
+        for s in symptoms:
+            stmt = stmt.where(Patient.symptoms.ilike(f"%{s}%"))
+            
     stmt = stmt.offset(skip).limit(limit)
     res = await db.execute(stmt)
     return res.scalars().all()
@@ -94,6 +104,7 @@ async def export_patients_csv(
     sex: Optional[str] = None,
     min_age: Optional[int] = None,
     max_age: Optional[int] = None,
+    symptoms: Optional[List[str]] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """FR-25: Export patient search results as CSV for external analysis."""
@@ -106,6 +117,9 @@ async def export_patients_csv(
         stmt = stmt.where(Patient.age >= min_age)
     if max_age is not None:
         stmt = stmt.where(Patient.age <= max_age)
+    if symptoms:
+        for s in symptoms:
+            stmt = stmt.where(Patient.symptoms.ilike(f"%{s}%"))
 
     res = await db.execute(stmt)
     patients = res.scalars().all()

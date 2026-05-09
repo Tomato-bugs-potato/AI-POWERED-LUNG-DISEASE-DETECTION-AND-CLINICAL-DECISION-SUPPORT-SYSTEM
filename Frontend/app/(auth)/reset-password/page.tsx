@@ -22,7 +22,27 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+// useSearchParams() requires a Suspense boundary on the static-export path.
+// Default export wraps the form in <Suspense>; the form itself owns the hook.
 export default function ResetPasswordPage() {
+    return (
+        <React.Suspense fallback={<ResetPasswordFallback />}>
+            <ResetPasswordForm />
+        </React.Suspense>
+    );
+}
+
+function ResetPasswordFallback() {
+    return (
+        <div className="min-h-screen bg-premium-gradient flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md flex justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-[#4BA0A2]" />
+            </div>
+        </div>
+    );
+}
+
+function ResetPasswordForm() {
     const searchParams = useSearchParams();
     const token = searchParams.get('token');
 

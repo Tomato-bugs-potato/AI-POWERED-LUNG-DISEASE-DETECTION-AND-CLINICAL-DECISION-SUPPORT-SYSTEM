@@ -24,3 +24,9 @@ class ImageUploadResponse(BaseModel):
     image_id: uuid.UUID
     case_id: uuid.UUID
     status: str = "queued_for_inference"
+
+class ImageBase64Upload(BaseModel):
+    case_id: uuid.UUID
+    image_base64: str
+    filename: Optional[str] = "upload.png"
+    allow_duplicate: bool = True

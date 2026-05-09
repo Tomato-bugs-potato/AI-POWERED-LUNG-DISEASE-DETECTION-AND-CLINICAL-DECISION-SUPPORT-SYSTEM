@@ -4,66 +4,186 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Search, Activity, CheckCircle2, TrendingUp, AlertCircle, Users, ArrowUpRight } from 'lucide-react';
+import {
+    Search,
+    Activity,
+    CheckCircle2,
+    AlertTriangle,
+    Stethoscope,
+    Users,
+    Timer,
+    FileText,
+} from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthStore } from '@/store';
+import { Case } from '@/types';
 import api from '@/lib/api';
+import {
+    StatCard,
+    StatGrid,
+    RangeSelect,
+    AreaChartCard,
+    BarChartCard,
+    DonutChartCard,
+    Range,
+    withinRange,
+    dailyBuckets,
+    bumpBucket,
+} from '@/components/dashboard/_kit';
 
 interface DoctorDashboardViewProps {
-    initialData: {
+    initialData?: {
         pending: any[];
         completed: any[];
         total: number;
     };
 }
 
-const fetchDoctorDashboardData = async () => {
-    try {
-        const response = await api.get('/cases', { params: { limit: 100 } });
-        const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
+type FullCase = Case & {
+    created_at?: string;
+    updated_at?: string;
+};
 
-        const allCases = data.map((c: any) => ({
+const fetchAllCases = async (): Promise<FullCase[]> => {
+    try {
+        const response = await api.get('/cases');
+        const data = Array.isArray(response.data) ? response.data : (response.data?.items || []);
+        return data.map((c: any) => ({
             case_id: c.case_id,
             patient_id: c.patient_id,
             status: c.status,
             priority: c.priority || 'Non_Critical',
-            updated_at: c.updated_at || c.created_at || new Date().toISOString(),
-        }));
-
-        const pending = allCases
-            .filter((c: any) => c.status === 'Ready_for_Diagnosis' || c.status === 'In_Review')
-            .sort((a: any, b: any) => {
-                if (a.priority === 'Critical' && b.priority !== 'Critical') return -1;
-                if (a.priority !== 'Critical' && b.priority === 'Critical') return 1;
-                return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-            });
-        const completed = allCases.filter((c: any) => c.status === 'Diagnosed' || c.status === 'Completed');
-
-        return { pending, completed, total: allCases.length };
+            upload_date: c.created_at || c.updated_at || new Date().toISOString(),
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+            image: c.images?.[0] || { image_id: '', file_url: '', upload_date: '', format: 'DICOM' },
+            inference_result: c.inference_result,
+            radiologist_review: c.radiologist_review,
+            diagnosis: c.diagnosis,
+        })) as FullCase[];
     } catch {
-        return { pending: [], completed: [], total: 0 };
+        return [];
     }
 };
 
-export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
+// Diagnosis timestamp falls back gracefully so we never miss counts.
+function diagnosisTimestamp(c: FullCase): string | undefined {
+    return c.diagnosis?.diagnosed_at || c.updated_at || c.created_at || c.upload_date;
+}
+
+export function DoctorDashboardView({ initialData: _initialData }: DoctorDashboardViewProps) {
     const router = useRouter();
     const { user } = useAuthStore();
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [range, setRange] = React.useState<Range>('week');
 
-    const { data } = useQuery({
-        queryKey: ['doctor-dashboard-data'],
-        queryFn: fetchDoctorDashboardData,
-        initialData,
+    const { data: cases = [], isLoading } = useQuery({
+        queryKey: ['doctor-cases'],
+        queryFn: fetchAllCases,
         refetchInterval: 30000,
     });
 
-    const pendingCases = data?.pending || [];
-    const completedCases = data?.completed || [];
+    const stats = React.useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const awaiting = cases.filter((c) => c.status === 'Ready_for_Diagnosis');
+        const criticalAwaiting = awaiting.filter((c) => c.priority === 'Critical');
+        const diagnosed = cases.filter((c) => c.status === 'Diagnosed' || c.status === 'Completed');
+
+        const diagnosedToday = diagnosed.filter((c) => {
+            const ts = diagnosisTimestamp(c);
+            return ts ? new Date(ts).getTime() >= startOfToday.getTime() : false;
+        });
+
+        const inWindow = diagnosed.filter((c) => withinRange(diagnosisTimestamp(c), range, now));
+
+        const turnarounds: number[] = [];
+        for (const c of inWindow) {
+            const start = c.radiologist_review?.reviewed_at || c.updated_at;
+            const end = c.diagnosis?.diagnosed_at;
+            if (!start || !end) continue;
+            const hrs = (new Date(end).getTime() - new Date(start).getTime()) / 3_600_000;
+            if (hrs >= 0 && hrs < 24 * 30) turnarounds.push(hrs);
+        }
+        const avgTurnaroundHrs =
+            turnarounds.length === 0
+                ? null
+                : turnarounds.reduce((s, x) => s + x, 0) / turnarounds.length;
+
+        const uniquePatients = new Set(cases.map((c) => c.patient_id)).size;
+
+        return {
+            awaiting: awaiting.length,
+            criticalAwaiting: criticalAwaiting.length,
+            diagnosed: diagnosed.length,
+            diagnosedToday: diagnosedToday.length,
+            avgTurnaroundHrs,
+            uniquePatients,
+            totalCases: cases.length,
+        };
+    }, [cases, range]);
+
+    const charts = React.useMemo(() => {
+        const now = new Date();
+        const days = range === 'today' ? 1 : range === 'week' ? 7 : 30;
+        const buckets = dailyBuckets(days, now);
+        for (const c of cases) bumpBucket(buckets, diagnosisTimestamp(c));
+        const throughput = buckets.map((b) => ({ day: b.day, count: b.count }));
+
+        const inWindow = cases.filter((c) => withinRange(diagnosisTimestamp(c), range, now));
+
+        // Disease class distribution from confirmed diagnoses (preferred) or
+        // AI top-1 prediction as a fallback for cases without a diagnosis yet.
+        const diseaseCounts: Record<string, number> = {};
+        for (const c of inWindow) {
+            let key: string | null = null;
+            if (c.diagnosis?.primary_diagnosis) {
+                key = String(c.diagnosis.primary_diagnosis).replace('_', ' ');
+            } else {
+                const preds = c.inference_result?.predictions || [];
+                if (preds.length > 0) {
+                    const top = [...preds].sort((a, b) => b.confidence_score - a.confidence_score)[0];
+                    key = String(top.disease_class).replace('_', ' ');
+                }
+            }
+            if (key) diseaseCounts[key] = (diseaseCounts[key] || 0) + 1;
+        }
+        const diseases = Object.entries(diseaseCounts).map(([label, value]) => ({ label, value }));
+
+        // Urgency mix of cases entering the doctor's queue in window.
+        const urgencyCounts = { Critical: 0, High: 0, 'Non_Critical': 0 };
+        for (const c of inWindow) {
+            const k = c.priority as keyof typeof urgencyCounts;
+            if (k in urgencyCounts) urgencyCounts[k]++;
+        }
+        const urgency = [
+            { label: 'Critical', value: urgencyCounts.Critical },
+            { label: 'High', value: urgencyCounts.High },
+            { label: 'Routine', value: urgencyCounts['Non_Critical'] },
+        ];
+
+        return { throughput, diseases, urgency };
+    }, [cases, range]);
+
+    const pendingQueue = React.useMemo(
+        () =>
+            cases
+                .filter((c) => c.status === 'Ready_for_Diagnosis')
+                .sort((a, b) => {
+                    if (a.priority === 'Critical' && b.priority !== 'Critical') return -1;
+                    if (a.priority !== 'Critical' && b.priority === 'Critical') return 1;
+                    return new Date(b.updated_at || b.upload_date).getTime() - new Date(a.updated_at || a.upload_date).getTime();
+                })
+                .slice(0, 10),
+        [cases],
+    );
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,252 +193,205 @@ export function DoctorDashboardView({ initialData }: DoctorDashboardViewProps) {
     };
 
     return (
-        <div className="space-y-8 pb-10">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2">
+        <div className="space-y-6 pb-10">
+            {/* Header */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight text-[#1C2222] dark:text-white">
-                        Welcome, {user?.name || 'Dr. Endashaw'}
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                        Welcome, {user?.name || 'Doctor'}
                     </h1>
-                    <p className="text-[#1C2222]/40 mt-1 font-medium">Here is your diagnosis queue and daily summary.</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Diagnosis queue, throughput, and clinical breakdown.
+                    </p>
                 </div>
-
-                <form onSubmit={handleSearch} className="relative w-full sm:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                        placeholder="Quick patient search..."
-                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-[#1C2222]/10 shadow-sm rounded-xl focus:ring-[#4BA0A2]/20"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </form>
-            </div>
-
-            <div className="rounded-[2rem] p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-black text-[#1C2222] dark:text-gray-100">Statistical Summary</h2>
-                </div>
-
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Card 1: Pending Diagnosis */}
-                    <div className="card-push-container">
-
-                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-sm font-extrabold text-[#1C2222]/70">Pending Diagnosis</p>
-                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                            </div>
-                            <div className="mb-4">
-                                <Select defaultValue="today">
-                                    <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                        <SelectItem value="today">Today</SelectItem>
-                                        <SelectItem value="week">Week</SelectItem>
-                                        <SelectItem value="month">Month</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-4 flex-1 flex flex-col">
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Awaiting Review</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <AlertCircle className="h-3.5 w-3.5 text-red-400" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{pendingCases.length}</span>
-                                    </div>
-                                </div>
-
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Critical Cases</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{pendingCases.filter((c: any) => c.priority === 'Critical').length}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Card 2: Completed Today */}
-                    <div className="card-push-container">
-
-
-                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-sm font-extrabold text-[#1C2222]/70">Completed Cases</p>
-                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                            </div>
-                            <div className="mb-4">
-                                <Select defaultValue="today">
-                                    <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                        <SelectItem value="today">Today</SelectItem>
-                                        <SelectItem value="week">Week</SelectItem>
-                                        <SelectItem value="month">Month</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-4 flex-1 flex flex-col">
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Diagnosed</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length}</span>
-                                    </div>
-                                </div>
-
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total Completed</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <Activity className="h-3.5 w-3.5 text-gray-400" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Card 3: Total Cases */}
-                    <div className="card-push-container">
-
-
-                        <div className="card-premium-pocket p-7 flex-1 flex flex-col">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-sm font-extrabold text-[#1C2222]/70">Case Overview</p>
-                                <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                            </div>
-                            <div className="mb-4">
-                                <Select defaultValue="week">
-                                    <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                        <SelectItem value="week">This Week</SelectItem>
-                                        <SelectItem value="last-week">Last Week</SelectItem>
-                                        <SelectItem value="month">Month</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-4 flex-1 flex flex-col">
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total In System</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{initialData.total || 0}</span>
-                                    </div>
-                                </div>
-
-                                <div className="sub-card-white flex-1">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Patients Seen</span>
-                                        <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                            <Users className="h-3.5 w-3.5 text-gray-400" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{completedCases.length + pendingCases.length}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <form onSubmit={handleSearch} className="relative flex-1 sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Quick patient search..."
+                            className="pl-9 bg-card border-border"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </form>
+                    <RangeSelect value={range} onChange={setRange} />
                 </div>
             </div>
 
-            <div className="card-premium-pocket p-6 lg:p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-extrabold text-[#1C2222] dark:text-gray-100">Needs Diagnosis</h2>
-                </div>
+            {/* KPI row */}
+            <StatGrid cols={4}>
+                <StatCard
+                    label="Awaiting Diagnosis"
+                    value={stats.awaiting}
+                    sublabel="Ready for your review"
+                    icon={<FileText className="h-5 w-5" />}
+                    tone="warning"
+                    loading={isLoading}
+                />
+                <StatCard
+                    label="Critical Pending"
+                    value={stats.criticalAwaiting}
+                    sublabel="Top of triage"
+                    icon={<AlertTriangle className="h-5 w-5" />}
+                    tone="destructive"
+                    loading={isLoading}
+                />
+                <StatCard
+                    label="Diagnosed Today"
+                    value={stats.diagnosedToday}
+                    sublabel="Completed since midnight"
+                    icon={<CheckCircle2 className="h-5 w-5" />}
+                    tone="success"
+                    loading={isLoading}
+                />
+                <StatCard
+                    label="Total Diagnoses"
+                    value={stats.diagnosed}
+                    sublabel="All time"
+                    icon={<Stethoscope className="h-5 w-5" />}
+                    tone="primary"
+                    loading={isLoading}
+                />
+            </StatGrid>
 
-
-                {pendingCases && pendingCases.length > 0 ? (
-                    <div className="overflow-x-auto w-full">
-                        <table className="w-full text-sm text-left border-collapse border-spacing-0">
-                            <thead className="text-[10px] text-[#1C2222]/40 uppercase font-bold tracking-widest border-b border-[#1C2222]/5">
-                                <tr className="divide-x divide-gray-100">
-                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Patient ID</th>
-                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Department</th>
-                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100">Date Ready</th>
-                                    <th scope="col" className="px-4 py-3.5 border-r border-gray-100 text-center">Urgency</th>
-                                    <th scope="col" className="px-4 py-3.5 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#1C2222]/5">
-                                {pendingCases.map((c: any) => (
-                                    <tr
-                                        key={c.case_id}
-                                        className={`hover:bg-white/40 transition-colors ${c.priority === 'Critical' ? 'bg-red-50/30 dark:bg-red-950/20' : ''}`}
-                                    >
-                                        <td className="px-4 py-3">
-                                            <div className="font-bold text-black dark:text-gray-100 leading-tight">{c.patient_id.substring(0, 8)}...</div>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">Radiology Dept</td>
-                                        <td className="px-4 py-3 text-gray-500 font-bold text-[10px]">
-                                            {format(new Date(c.updated_at), 'h:mm a (MMM d)')}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            {c.priority === 'Critical' ? (
-                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-red-100 text-red-700">
-                                                    Critical
-                                                </Badge>
-                                            ) : c.priority === 'High' ? (
-                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-orange-100 text-orange-700">
-                                                    Urgent
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="rounded-md px-2 py-0 border-none font-black text-[9px] uppercase bg-gray-100 text-gray-600">
-                                                    Routine
-                                                </Badge>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <Button asChild className={`font-bold text-[11px] rounded-full px-5 h-8 ${c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C2222] hover:bg-[#334155]'} text-white`}>
-                                                <Link href={`/doctor/cases/${c.case_id}`}>
-                                                    Diagnose
-                                                </Link>
-                                            </Button>
-
-                                        </td>
+            {/* Queue + sidebar — pulls the table up so it's the 3rd row, visible above the fold */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                {/* Needs Diagnosis queue */}
+                <div className="bg-card text-card-foreground rounded-2xl border border-border p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h2 className="text-sm font-bold text-foreground">Needs Diagnosis</h2>
+                        <Button asChild variant="ghost" size="sm">
+                            <Link href="/doctor/cases">View all</Link>
+                        </Button>
+                    </div>
+                    {isLoading ? (
+                        <div className="space-y-3">
+                            {[...Array(4)].map((_, i) => (
+                                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                            ))}
+                        </div>
+                    ) : pendingQueue.length === 0 ? (
+                        <div className="py-10 text-center">
+                            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success/15">
+                                <CheckCircle2 className="h-5 w-5 text-success" />
+                            </div>
+                            <p className="text-sm font-semibold text-foreground">All caught up</p>
+                            <p className="mt-1 text-xs text-muted-foreground">No pending diagnoses in your queue.</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="text-xs uppercase text-muted-foreground">
+                                    <tr className="border-b border-border">
+                                        <th className="px-3 py-2 font-semibold">Patient</th>
+                                        <th className="px-3 py-2 font-semibold">Ready At</th>
+                                        <th className="px-3 py-2 font-semibold">Urgency</th>
+                                        <th className="px-3 py-2"></th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="text-center py-10">
-                        <div className="mx-auto w-14 h-14 rounded-full bg-[#4BA0A2]/15 flex items-center justify-center mb-3">
-                            <CheckCircle2 className="h-6 w-6 text-[#4BA0A2]" />
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {pendingQueue.map((c) => (
+                                        <tr
+                                            key={c.case_id}
+                                            className={`hover:bg-muted/40 ${c.priority === 'Critical' ? 'bg-destructive/5' : ''}`}
+                                        >
+                                            <td className="px-3 py-2 font-semibold text-foreground">
+                                                {c.patient_id.substring(0, 8)}…
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground">
+                                                {format(new Date(c.updated_at || c.upload_date), 'MMM d, h:mm a')}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {c.priority === 'Critical' ? (
+                                                    <Badge className="bg-destructive/15 text-destructive border-0 font-bold rounded-full px-3">Critical</Badge>
+                                                ) : c.priority === 'High' ? (
+                                                    <Badge className="bg-warning/15 text-warning border-0 font-bold rounded-full px-3">High</Badge>
+                                                ) : (
+                                                    <Badge className="bg-muted text-muted-foreground border-0 font-bold rounded-full px-3">Routine</Badge>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    className={`rounded-full px-4 text-xs font-semibold ${
+                                                        c.priority === 'Critical' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : ''
+                                                    }`}
+                                                >
+                                                    <Link href={`/doctor/cases/${c.case_id}`}>Diagnose</Link>
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                        <h3 className="text-sm font-extrabold text-[#1C2222]">All caught up</h3>
-                        <p className="text-sm text-[#1C2222]/40 mt-1 font-medium">No pending diagnoses in your queue.</p>
-                    </div>
-                )}
+                    )}
+                </div>
+
+                {/* Sidebar: compact secondary stats */}
+                <div className="space-y-4">
+                    <StatCard
+                        compact
+                        label="Avg Time to Diagnose"
+                        value={
+                            stats.avgTurnaroundHrs == null
+                                ? '—'
+                                : stats.avgTurnaroundHrs < 1
+                                  ? `${Math.round(stats.avgTurnaroundHrs * 60)} min`
+                                  : `${stats.avgTurnaroundHrs.toFixed(1)} hrs`
+                        }
+                        sublabel={`Review → diagnosis (${range === 'all' ? 'all time' : 'in window'})`}
+                        icon={<Timer className="h-4 w-4" />}
+                        tone="primary"
+                        loading={isLoading}
+                        deltaDirection="lower-is-better"
+                    />
+                    <StatCard
+                        compact
+                        label="Unique Patients"
+                        value={stats.uniquePatients}
+                        sublabel="In your case load"
+                        icon={<Users className="h-4 w-4" />}
+                        tone="default"
+                        loading={isLoading}
+                    />
+                    <StatCard
+                        compact
+                        label="Cases In System"
+                        value={stats.totalCases}
+                        sublabel="All statuses"
+                        icon={<Activity className="h-4 w-4" />}
+                        tone="default"
+                        loading={isLoading}
+                    />
+                </div>
             </div>
+
+            {/* Charts — below the fold */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <AreaChartCard
+                        title="Diagnoses Over Time"
+                        subtitle={`Completed per day · ${range === 'all' ? 'last 30 days' : 'in window'}`}
+                        data={charts.throughput}
+                        loading={isLoading}
+                    />
+                </div>
+                <DonutChartCard
+                    title="Urgency Mix"
+                    subtitle="Triage priority in window"
+                    data={charts.urgency}
+                    loading={isLoading}
+                />
+            </div>
+
+            <BarChartCard
+                title="Disease Class Distribution"
+                subtitle="Confirmed diagnosis (falls back to AI top-1 for pending cases)"
+                data={charts.diseases}
+                loading={isLoading}
+            />
         </div>
     );
 }

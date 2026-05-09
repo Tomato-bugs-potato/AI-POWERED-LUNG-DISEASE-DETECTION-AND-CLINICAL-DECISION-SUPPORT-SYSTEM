@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Stethoscope, Save, FileText, CheckCircle2, User as UserIcon } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Stethoscope, Save, FileText, CheckCircle2, User as UserIcon, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
 import { ImageViewer } from '@/components/radiologist/ImageViewer';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { CaseStatusBadge } from '@/components/shared/CaseStatusBadge';
+import { ClassificationBanner } from '@/components/shared/ClassificationBanner';
 import api from '@/lib/api';
 
 const CLASS_COLORS: Record<string, string> = {
@@ -42,10 +43,11 @@ interface CaseDetailsViewProps {
 
 const fetchDiagnosisDetails = async (id: string) => {
     try {
-        const [caseRes, reviewRes, reportStatusRes] = await Promise.allSettled([
+        const [caseRes, reviewRes, reportStatusRes, diagnosisRes] = await Promise.allSettled([
             api.get(`/cases/${id}`),
             api.get(`/reviews/${id}`),
-            api.get(`/reports/${id}/status`)
+            api.get(`/reports/${id}/status`),
+            api.get(`/diagnoses/${id}`),
         ]);
 
         const c = caseRes.status === 'fulfilled' ? caseRes.value.data : null;
@@ -53,6 +55,7 @@ const fetchDiagnosisDetails = async (id: string) => {
 
         const review = reviewRes.status === 'fulfilled' ? reviewRes.value.data : null;
         const reportStatus = reportStatusRes.status === 'fulfilled' ? reportStatusRes.value.data : null;
+        const draft = diagnosisRes.status === 'fulfilled' ? diagnosisRes.value.data : null;
 
         let imageUrl = '';
         const firstImage = c.images?.[0];
@@ -63,15 +66,19 @@ const fetchDiagnosisDetails = async (id: string) => {
                         responseType: 'blob',
                     });
                     imageUrl = URL.createObjectURL(imgRes.data);
-                } catch {
+                } catch (err: any) {
+                    console.error(
+                        `[CaseDetailsView] /images/${firstImage.image_id}/proxy failed:`,
+                        err?.response?.status,
+                        err?.response?.data || err?.message,
+                    );
                     imageUrl = '';
                 }
-            } else {
-                // During SSR, just leave it blank to avoid createObjectURL crash
-                imageUrl = '';
             }
         }
         let inferenceResults = firstImage?.inference_results?.[0]?.predictions || [];
+        const lungSegmentation = firstImage?.inference_results?.[0]?.lung_segmentation || null;
+        const aiClassification = firstImage?.inference_results?.[0]?.classification || null;
 
         return {
             case_id: c.case_id,
@@ -85,13 +92,23 @@ const fetchDiagnosisDetails = async (id: string) => {
             status: c.status || 'Ready_for_Diagnosis',
             priority: c.priority || 'Non_Critical',
             image: { file_url: imageUrl },
+            ai_classification: aiClassification,
+            lung_segmentation: lungSegmentation,
             radiologist_review: {
                 radiologist_name: c.upload_tech?.name || 'Radiology Dept',
                 confidence_threshold_applied: review?.confidence_threshold_applied ?? 50,
                 notes: review?.notes || '',
                 edited_predictions: review?.annotations?.edited_predictions || inferenceResults,
             },
-            reportStatus: reportStatus
+            draft: draft
+                ? {
+                    primary_diagnosis: draft.primary_diagnosis || '',
+                    diagnosis_notes: draft.diagnosis_notes || '',
+                    urgency_level: draft.urgency_level || 'Non_Critical',
+                }
+                : null,
+            reportStatus: reportStatus,
+            image_id: firstImage?.image_id || null
         };
     } catch {
         return null;
@@ -100,16 +117,28 @@ const fetchDiagnosisDetails = async (id: string) => {
 
 export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const { data: caseData = initialData, isLoading } = useQuery({
         queryKey: ['diagnosis-case', caseId],
         queryFn: () => fetchDiagnosisDetails(caseId),
         initialData: initialData,
+        staleTime: 0, // Force background refetch to get the image proxy blob URL
+        refetchOnMount: 'always',
     });
 
     const [finalDiagnosis, setFinalDiagnosis] = React.useState<string>('');
     const [doctorNotes, setDoctorNotes] = React.useState('');
     const [urgency, setUrgency] = React.useState<string>('Non_Critical');
+
+    // Hydrate the form from any previously saved draft.
+    React.useEffect(() => {
+        if (caseData?.draft) {
+            setFinalDiagnosis(caseData.draft.primary_diagnosis || '');
+            setDoctorNotes(caseData.draft.diagnosis_notes || '');
+            setUrgency(caseData.draft.urgency_level || 'Non_Critical');
+        }
+    }, [caseData?.draft]);
 
     const visibleAnnotations = React.useMemo(() => {
         if (!caseData?.radiologist_review?.edited_predictions) return [];
@@ -126,9 +155,12 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                 diagnosis_notes: doctorNotes,
                 urgency_level: urgency,
             });
+            await queryClient.invalidateQueries({ queryKey: ['diagnosis-case', caseId] });
             toast.success('Draft saved successfully');
-        } catch {
-            toast.error('Failed to save draft');
+        } catch (e: any) {
+            console.error('[CaseDetailsView] draft save failed:', e?.response?.status, e?.response?.data);
+            const detail = e?.response?.data?.detail;
+            toast.error(typeof detail === 'string' ? detail : 'Failed to save draft');
         }
     };
 
@@ -144,10 +176,35 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                 diagnosis_notes: doctorNotes,
                 urgency_level: urgency,
             });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['diagnosis-case', caseId] }),
+                queryClient.invalidateQueries({ queryKey: ['doctor-cases'] })
+            ]);
             toast.success('Diagnosis finalized successfully');
             router.push('/doctor/cases');
         } catch {
             toast.error('Failed to finalize diagnosis');
+        }
+    };
+
+    const handleReEvaluate = async () => {
+        const imageId = caseData?.image_id;
+        if (!imageId) {
+            toast.error('No image found for re-evaluation');
+            return;
+        }
+
+        toast.info('Requesting AI re-evaluation...');
+        try {
+            await api.post(`/inference/${imageId}/retry`);
+            toast.success('AI Re-evaluation queued. Results will refresh soon.');
+            // Refetch data after a short delay to see if status updated
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['diagnosis-case', caseId] });
+            }, 3000);
+        } catch (error: any) {
+            const msg = error.response?.data?.detail || 'Failed to trigger AI re-evaluation';
+            toast.error(msg);
         }
     };
 
@@ -179,6 +236,9 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
+                    <Button variant="outline" onClick={handleReEvaluate} className="hover:bg-teal-50 hover:text-teal-600 border-teal-100">
+                        <RefreshCw className="mr-2 h-4 w-4" /> Re-evaluate AI
+                    </Button>
                     <Button variant="outline" onClick={handleSaveDraft}>
                         <Save className="mr-2 h-4 w-4" /> Save Draft
                     </Button>
@@ -290,10 +350,12 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                         <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION (READ-ONLY)</span>
                         <span className="text-zinc-500 text-xs hidden sm:block">By {caseData.radiologist_review.radiologist_name}</span>
                     </div>
+                    <ClassificationBanner classification={caseData.ai_classification} />
                     <div className="flex-1 w-full bg-black relative">
                         <ImageViewer
                             imageUrl={caseData.image.file_url}
                             annotations={visibleAnnotations}
+                            lungSegmentation={caseData.lung_segmentation}
                             mode="view"
                             showAnnotations={true}
                             showScores={true}
@@ -355,6 +417,6 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

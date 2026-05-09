@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   api:
     build:
@@ -34,6 +32,15 @@ services:
       POSTGRESQL_USERNAME: user
       POSTGRESQL_PASSWORD: password
       POSTGRESQL_DATABASE: lungdb
+    command: >
+      bash -c "
+      /opt/bitnami/scripts/postgresql/entrypoint.sh /opt/bitnami/scripts/postgresql/run.sh &
+      sleep 10;
+      psql -U user -d lungdb -c 'ALTER SYSTEM SET max_wal_senders = 10;';
+      psql -U user -d lungdb -c 'ALTER SYSTEM SET max_replication_slots = 10;';
+      psql -U user -d lungdb -c 'SELECT pg_reload_conf();';
+      wait
+      "
     ports:
       - "5432:5432"
     volumes:
@@ -62,6 +69,14 @@ services:
       POSTGRESQL_USERNAME: user
       POSTGRESQL_PASSWORD: password
       POSTGRESQL_DATABASE: lungdb
+    command: >
+      bash -c "
+      /opt/bitnami/scripts/postgresql/entrypoint.sh /opt/bitnami/scripts/postgresql/run.sh &
+      sleep 10;
+      psql -U user -d lungdb -c \"ALTER SYSTEM SET wal_receiver_timeout = '2min';\";
+      psql -U user -d lungdb -c 'SELECT pg_reload_conf();';
+      wait
+      "
     ports:
       - "5433:5432"
     volumes:

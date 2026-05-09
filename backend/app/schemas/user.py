@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     role: Role
     hospital_id: Optional[uuid.UUID] = None
     phone_number: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: Optional[str] = None
@@ -17,6 +18,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     phone_number: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class UserResponse(UserBase):
     user_id: uuid.UUID

@@ -1,162 +1,321 @@
 import logging
+import cv2
 import torch
-import torchvision
-import torchvision.transforms.v2 as transforms
+import numpy as np
+import timm
 from PIL import Image
-from cjm_yolox_pytorch.model import build_model
-from cjm_pil_utils.core import resize_img
-from cjm_yolox_pytorch.inference import YOLOXInferenceWrapper
+from ultralytics import YOLO
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+# Grad-CAM heatmap thresholding for injection localization.
+# 0.70 quantile = take the top 30% of activation magnitudes — focal enough
+# to give a meaningful bbox without slicing off the diffuse edges of a lesion.
+GRADCAM_QUANTILE = 0.70
 
 logger = logging.getLogger(__name__)
 
 # FR-09: Three disease classes
 DISEASE_CLASSES = {
-    0: "Pneumonia",
-    1: "Tuberculosis",
-    2: "Lung Tumor",
+    0: "tumor_xray",
+    1: "tuberculosis",
+    2: "pneumonia",
+}
+CLASS_NAMES = [DISEASE_CLASSES[i] for i in range(len(DISEASE_CLASSES))]
+
+# Aggressive Fusion Parameters (Notebook V3)
+# Centered-gain fusion: fused = s_det * (1 + CLS_GAIN * (p_cls - 0.5)), clipped.
+# p_cls = 0.5 → no change. p_cls = 1.0 → score multiplied by (1 + 0.5*CLS_GAIN).
+# p_cls = 0.0 → score zeroed. Lets a confident classifier lift bbox scores
+# instead of merely attenuating them.
+CLS_GAIN = 2.0
+SUPPRESSION_THRESHOLD = 0.20      # Kill a YOLO box if classifier gives that class < 20%
+INJECTION_THRESHOLD = 0.90        # Hard injection (cls * 0.85)
+SOFT_INJECTION_THRESHOLD = 0.50   # Soft injection (cls * 0.60) — shows moderate classifier signals
+
+NORM_STATS = {"mean": [0.54, 0.54, 0.54], "std": [0.2738, 0.2738, 0.2738]}
+
+PER_CLASS = {
+    "tumor_xray":   {"conf_thr": 0.25},
+    "tuberculosis": {"conf_thr": 0.20},
+    "pneumonia":    {"conf_thr": 0.15},
 }
 
+class LungAIEnsembleEngine:
+    """
+    Ensembled inference engine (Notebook V4 logic).
+    YOLOv12m for detection + EfficientNet-B0 for classification refinement.
+    """
 
-class YOLOxInferenceEngine:
-    def __init__(self, weights_path: str, device: str = "cpu"):
+    def __init__(self, det_weights: str, cls_weights: str, device: str = "cpu"):
         self.device = device
-        self.weights_path = weights_path
-        self.train_sz = 640  # FR-08: YOLOx standard input resolution
-        self.num_classes = 3  # FR-09: Pneumonia, TB, Lung Tumor
-        self.class_names = ["Pneumonia", "Tuberculosis", "Lung Tumor"]
-        self.norm_stats = ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        self.model, self.wrapped_model = self._load_model()
+        self.det_weights = det_weights
+        self.cls_weights = cls_weights
+        self.img_size_det = 640
+        self.img_size_cls = 384
+        
+        self.det_model = self._load_yolo()
+        self.cls_model = self._load_classifier()
 
-    def _load_model(self):
-        logger.info(f"Loading YOLOx weights from {self.weights_path} onto {self.device}")
+        # Grad-CAM target: last MBConv block of EfficientNet-B0.
+        self.gradcam_target_layer = self.cls_model.blocks[-1]
 
-        state_dict = torch.load(self.weights_path, map_location=self.device)
+        self.cls_tfm = A.Compose([
+            A.Resize(self.img_size_cls, self.img_size_cls),
+            A.Normalize(mean=NORM_STATS["mean"], std=NORM_STATS["std"]),
+            ToTensorV2(),
+        ])
 
-        # Dynamically determine num_classes from checkpoint
-        detected_classes = self.num_classes
-        try:
-            for k in state_dict.keys():
-                if "multi_level_conv_cls.0.bias" in k:
-                    detected_classes = state_dict[k].shape[0]
-                    break
-        except Exception as e:
-            logger.warning(f"Could not dynamically determine num_classes from checkpoint: {e}")
+    def _load_yolo(self) -> YOLO:
+        logger.info(f"Loading YOLOv12m from {self.det_weights}")
+        model = YOLO(self.det_weights)
+        model.to(self.device)
+        return model
 
-        if detected_classes != self.num_classes:
-            logger.warning(
-                f"Checkpoint has {detected_classes} classes, but {self.num_classes} were expected. "
-                f"Building model with {detected_classes} classes to prevent crash."
+    def _load_classifier(self):
+        logger.info(f"Loading EfficientNet-B0 from {self.cls_weights}")
+        model = timm.create_model("efficientnet_b0", pretrained=False, num_classes=len(DISEASE_CLASSES))
+
+        # Checkpoint is a training-time wrapper dict (keys: "model",
+        # "backbone", "class_names", "norm_stats", "auc"), not a raw
+        # state_dict. Unwrap to the real weights.
+        checkpoint = torch.load(self.cls_weights, map_location=self.device)
+        if isinstance(checkpoint, dict):
+            # Training-time wrappers often nest the weights under "model" or "state_dict"
+            state_dict = (
+                checkpoint.get("state_dict")
+                or checkpoint.get("model")
+                or checkpoint.get("backbone")
+                or checkpoint
             )
-            if detected_classes == 80:
-                logger.warning(
-                    "WARNING: This appears to be the generic COCO pretrained model! "
-                    "It will NOT accurately detect lung diseases. "
-                    "Please replace with your fine-tuned 3-class checkpoint."
-                )
-            self.num_classes = detected_classes
+        else:
+            state_dict = checkpoint
 
-        # Build model — use yolox_tiny as fallback until YOLOx-M weights are available
-        # TODO: Switch to 'yolox_m' once retrained model weights are available (TECH-02)
-        model_variant = 'yolox_tiny'  # Will be 'yolox_m' after retraining
-        model = build_model(model_variant, self.num_classes, pretrained=False)
-        model.load_state_dict(state_dict, strict=False)
+        # Deep Unwrapping: If the inner dict still has metadata keys but not weights, it might be double-wrapped
+        if isinstance(state_dict, dict) and "model" in state_dict and "conv_stem.weight" not in state_dict:
+             logger.info("Double-wrapping detected in state_dict, unwrapping inner 'model' key")
+             state_dict = state_dict["model"]
+
+        if isinstance(state_dict, dict) and state_dict:
+            sample_key = next(iter(state_dict))
+            # Handle DistributedDataParallel or similar prefixes
+            for prefix in ("module.", "model."):
+                if sample_key.startswith(prefix):
+                    state_dict = {k[len(prefix):]: v for k, v in state_dict.items()}
+                    break
+
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        if missing:
+            logger.warning(f"EfficientNet missing keys: {len(missing)} (first: {missing[:3]})")
+        if unexpected:
+            logger.warning(f"EfficientNet unexpected keys: {len(unexpected)} (first: {unexpected[:3]})")
+
         model.to(self.device)
         model.eval()
+        return model
 
-        mean_t = torch.tensor(self.norm_stats[0]).view(1, 3, 1, 1).to(self.device)
-        std_t = torch.tensor(self.norm_stats[1]).view(1, 3, 1, 1).to(self.device)
-        wrapped_model = YOLOXInferenceWrapper(model, mean_t, std_t)
-
-        logger.info(f"Model loaded: variant={model_variant}, classes={self.num_classes}, input_size={self.train_sz}")
-        return model, wrapped_model
-
-    def _letterbox_image(self, img: Image.Image, expected_size: int):
-        pw, ph = img.size
-        scale = min(expected_size / pw, expected_size / ph)
-        nw = int(pw * scale)
-        nh = int(ph * scale)
-
-        img_resized = img.resize((nw, nh), Image.Resampling.BILINEAR)
-        new_img = Image.new('RGB', (expected_size, expected_size), (114, 114, 114))
-
-        dx = (expected_size - nw) // 2
-        dy = (expected_size - nh) // 2
-        new_img.paste(img_resized, (dx, dy))
-
-        return new_img, scale, dx, dy
-
-    def run_inference(self, img: Image.Image, metadata: dict) -> list[dict]:
-        """Runs the forward pass on the image and returns mapped bounding boxes."""
+    def run_inference(self, pil_img: Image.Image, metadata: dict) -> tuple[list[dict], dict]:
+        """
+        Run ensembled inference:
+        1. EfficientNet image-level classification.
+        2. YOLOv12m detection.
+        3. Aggressive fusion & hard filtering.
+        """
         try:
-            # 1. Letterbox resize to train size (640x640)
-            padded_img, scale, dx, dy = self._letterbox_image(img, self.train_sz)
-
-            # Prepare tensor [1, 3, 640, 640]
-            input_t = transforms.Compose([
-                transforms.ToImage(),
-                transforms.ToDtype(torch.float32, scale=True)
-            ])(padded_img)[None].to(self.device)
-
-            # Forward pass
+            img_np = np.array(pil_img)
+            
+            # --- 1. Image-Level Classification ---
+            cls_input = self.cls_tfm(image=img_np)["image"].unsqueeze(0).to(self.device)
             with torch.no_grad():
-                output = self.wrapped_model(input_t).cpu()
+                logits = self.cls_model(cls_input)
+                probs = torch.sigmoid(logits)[0].cpu().numpy().tolist()
+            
+            cls_probs = {CLASS_NAMES[i]: float(p) for i, p in enumerate(probs)}
+            
+            # --- 2. YOLO Detection ---
+            results = self.det_model.predict(
+                source=pil_img,
+                imgsz=self.img_size_det,
+                conf=0.1, # Fusion threshold
+                iou=0.45,
+                device=self.device,
+                verbose=False
+            )
+            r = results[0]
+            
+            det_boxes = []
+            det_scores = []
+            det_labels = []
+            
+            if r.boxes is not None and len(r.boxes) > 0:
+                det_boxes = r.boxes.xyxy.cpu().numpy()
+                det_scores = r.boxes.conf.cpu().numpy()
+                det_labels = r.boxes.cls.cpu().numpy().astype(int)
+            
+            # --- 3. Aggressive Fusion ---
+            final_predictions = []
+            keep_classes = set()
+            
+            for i in range(len(det_boxes)):
+                cls_idx = det_labels[i]
+                cn = CLASS_NAMES[cls_idx]
+                p_cls = cls_probs[cn]
+                s_det = det_scores[i]
+                
+                # Fusion score
+                fused_score = float(np.clip(s_det * (1.0 + CLS_GAIN * (p_cls - 0.5)), 0.0, 1.0))
+                
+                logger.info(f"[ENSEMBLE] {cn}: yolo={s_det:.3f}, cls={p_cls:.3f}, fused={fused_score:.3f}")
 
-            # Filter by confidence — use low threshold to store all predictions
-            # Frontend confidence slider (FR-15, default 50%) handles display filtering
-            conf_thresh = 0.1
-            probs = output[0, :, 5]
-            mask = probs > conf_thresh
+                # Hard suppression: classifier says < 5%
+                if p_cls < SUPPRESSION_THRESHOLD:
+                    logger.warning(f"[SUPPRESSION] Rejecting {cn} due to low classifier confidence ({p_cls:.3f})")
+                    continue
+                    
+                # Per-class threshold
+                curr_thr = PER_CLASS.get(cn, {"conf_thr": 0.2})["conf_thr"]
+                if fused_score >= curr_thr:
+                    final_predictions.append(self._format_box(det_boxes[i], fused_score, cn, metadata))
+                    keep_classes.add(cls_idx)
+                else:
+                    logger.info(f"[THRESHOLD] {cn} fused score {fused_score:.3f} below threshold {curr_thr}")
+            
+            # --- 4. Hard Injection ---
+            # Hard injection at cls > 0.90 (score = cls * 0.85)
+            # Soft injection at cls in [0.50, 0.90] (score = cls * 0.60) — surfaces
+            # moderate classifier confidence the radiologist would otherwise miss
+            # since YOLO never localized it.
+            for ci, cn in enumerate(CLASS_NAMES):
+                if ci in keep_classes:
+                    continue
+                p_cls = cls_probs[cn]
+                if p_cls > INJECTION_THRESHOLD:
+                    tier, gain = "hard", 0.85
+                elif p_cls > SOFT_INJECTION_THRESHOLD:
+                    tier, gain = "soft", 0.60
+                else:
+                    continue
 
-            proposals = output[0, mask]
+                logger.info(f"{tier.capitalize()} injection triggered for {cn} (p={p_cls:.2f})")
 
-            predictions = []
-            if len(proposals) > 0:
-                boxes = torchvision.ops.box_convert(proposals[:, :4], 'xywh', 'xyxy')
-                proposal_scores = proposals[:, 5]
+                img_h, img_w = img_np.shape[:2]
+                bbox, polygon = self._gradcam_bbox(cls_input, ci, img_h, img_w)
 
-                # Non-Maximum Suppression
-                nms_thresh = 0.45
-                keep_indices = torchvision.ops.nms(boxes, proposal_scores, nms_thresh)
+                if bbox is None:
+                    logger.info(f"[GRADCAM] {cn}: degenerate heatmap, using lung-area fallback")
+                    bbox = [img_w*0.05, img_h*0.05, img_w*0.95, img_h*0.95]
+                    polygon = None
+                else:
+                    logger.info(f"[GRADCAM] {cn}: localized to bbox {bbox}")
 
-                for idx in keep_indices:
-                    box = proposals[idx].numpy()
-                    score = float(proposal_scores[idx].item())
+                fallback_score = p_cls * gain
+                final_predictions.append(self._format_box(bbox, fallback_score, cn, metadata, polygon))
 
-                    px, py, pw, ph = box[0], box[1], box[2], box[3]
-
-                    # Reverse letterbox padding and scaling
-                    x0 = (px - dx) / scale
-                    y0 = (py - dy) / scale
-                    w = pw / scale
-                    h = ph / scale
-
-                    orig_w, orig_h = metadata["orig_width"], metadata["orig_height"]
-                    x1 = max(0, min(x0, orig_w))
-                    y1 = max(0, min(y0, orig_h))
-                    x2 = max(0, min(x0 + w, orig_w))
-                    y2 = max(0, min(y0 + h, orig_h))
-
-                    final_w = x2 - x1
-                    final_h = y2 - y1
-
-                    if final_w > 0 and final_h > 0:
-                        # FR-09: Dynamic class lookup from model output
-                        class_idx = int(box[4]) if len(box) > 4 else 0
-                        disease_class = DISEASE_CLASSES.get(class_idx, "Unknown")
-
-                        predictions.append({
-                            "disease_class": disease_class,
-                            "confidence_score": round(score, 3),
-                            "bounding_box": {
-                                "x": round(float(x1), 2),
-                                "y": round(float(y1), 2),
-                                "w": round(float(final_w), 2),
-                                "h": round(float(final_h), 2)
-                            }
-                        })
-
-            return predictions
+            return final_predictions, cls_probs
 
         except Exception as e:
-            logger.error(f"Inference error: {e}", exc_info=True)
+            logger.error(f"Ensemble inference error: {e}", exc_info=True)
             raise e
+
+    def _format_box(self, box, score, label, metadata, mask=None):
+        """Map detection coordinates (and optional polygon) from crop back to original image."""
+        x1, y1, x2, y2 = box
+        crop = metadata.get("crop", {})
+        dx = float(crop["xmin"]) if crop.get("cropped") else 0.0
+        dy = float(crop["ymin"]) if crop.get("cropped") else 0.0
+        x1 += dx
+        y1 += dy
+        x2 += dx
+        y2 += dy
+
+        orig_w = metadata["orig_width"]
+        orig_h = metadata["orig_height"]
+        x1 = max(0.0, min(x1, orig_w))
+        y1 = max(0.0, min(y1, orig_h))
+        x2 = max(0.0, min(x2, orig_w))
+        y2 = max(0.0, min(y2, orig_h))
+
+        formatted = {
+            "disease_class": label,
+            "confidence_score": round(float(score), 3),
+            "bounding_box": {
+                "x": round(float(x1), 2),
+                "y": round(float(y1), 2),
+                "w": round(float(x2 - x1), 2),
+                "h": round(float(y2 - y1), 2),
+            }
+        }
+
+        if mask:
+            mapped_mask = []
+            for pt in mask:
+                mx, my = float(pt[0]) + dx, float(pt[1]) + dy
+                mx = max(0.0, min(mx, orig_w))
+                my = max(0.0, min(my, orig_h))
+                mapped_mask.append([round(mx, 2), round(my, 2)])
+            formatted["segmentation"] = mapped_mask
+
+        return formatted
+
+    def _gradcam_bbox(self, cls_input: torch.Tensor, target_class_idx: int, img_h: int, img_w: int):
+        """
+        Localize the classifier's attention for target_class_idx using Grad-CAM.
+        Returns (bbox [x1,y1,x2,y2], polygon [[x,y],...]) in pil_img coords,
+        or (None, None) if the heatmap is degenerate (caller falls back to full lung).
+        """
+        activations = {}
+        gradients = {}
+
+        def fwd_hook(_module, _inp, out):
+            activations["v"] = out
+
+        def bwd_hook(_module, _grad_input, grad_output):
+            gradients["v"] = grad_output[0]
+
+        h1 = self.gradcam_target_layer.register_forward_hook(fwd_hook)
+        h2 = self.gradcam_target_layer.register_full_backward_hook(bwd_hook)
+
+        try:
+            cls_input_g = cls_input.detach().clone().requires_grad_(True)
+            self.cls_model.zero_grad(set_to_none=True)
+            logits = self.cls_model(cls_input_g)
+            score = torch.sigmoid(logits[0, target_class_idx])
+            score.backward()
+
+            acts = activations["v"][0]
+            grads = gradients["v"][0]
+            weights = grads.mean(dim=(1, 2))
+            cam = (weights[:, None, None] * acts).sum(dim=0)
+            cam = torch.relu(cam).detach().cpu().numpy()
+
+            if cam.size == 0 or not np.isfinite(cam).all() or cam.max() <= 0:
+                return None, None
+            cam = cam / cam.max()
+
+            cam_resized = cv2.resize(cam, (img_w, img_h), interpolation=cv2.INTER_LINEAR)
+            threshold = float(np.quantile(cam_resized, GRADCAM_QUANTILE))
+            mask = (cam_resized > threshold).astype(np.uint8)
+            if mask.sum() < 100:
+                return None, None
+
+            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+            if num_labels <= 1:
+                return None, None
+            largest_idx = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+            x, y, w, h, _ = stats[largest_idx]
+            bbox = [float(x), float(y), float(x + w), float(y + h)]
+
+            comp_mask = (labels == largest_idx).astype(np.uint8) * 255
+            contours, _ = cv2.findContours(comp_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            polygon = None
+            if contours:
+                biggest = max(contours, key=cv2.contourArea)
+                polygon = [[float(pt[0][0]), float(pt[0][1])] for pt in biggest]
+
+            return bbox, polygon
+        except Exception as e:
+            logger.warning(f"[GRADCAM] localization failed for class {target_class_idx}: {e}")
+            return None, None
+        finally:
+            h1.remove()
+            h2.remove()

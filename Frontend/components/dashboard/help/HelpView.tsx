@@ -173,7 +173,7 @@ function WorkflowStep({
 }
 
 interface HelpViewProps {
-    isDoctor: boolean;
+  isDoctor: boolean;
 }
 
 export function HelpView({ isDoctor }: HelpViewProps) {
@@ -229,7 +229,7 @@ export function HelpView({ isDoctor }: HelpViewProps) {
       </div>
 
       {/* ── Section 1: Getting Started ── */}
-      <Card aria-labelledby="getting-started-title" className='bg-white'>
+      <Card aria-labelledby="getting-started-title" className="shadow-sm border-slate-100 dark:border-zinc-800">
         <CardHeader>
           <CardTitle id="getting-started-title" className="sr-only">
             Getting Started
@@ -259,7 +259,7 @@ export function HelpView({ isDoctor }: HelpViewProps) {
       </Card>
 
       {/* ── Section 2: FAQ ── */}
-      <Card aria-labelledby="faq-title" className='bg-white'>
+      <Card aria-labelledby="faq-title" className="shadow-sm border-slate-100 dark:border-zinc-800">
         <CardHeader>
           <CardTitle id="faq-title" className="sr-only">
             Frequently Asked Questions
@@ -292,7 +292,7 @@ export function HelpView({ isDoctor }: HelpViewProps) {
       </Card>
 
       {/* ── Section 3: Keyboard Shortcuts ── */}
-      <Card aria-labelledby="shortcuts-title" className='bg-white'>
+      <Card aria-labelledby="shortcuts-title" className="shadow-sm border-slate-100 dark:border-zinc-800">
         <CardHeader>
           <CardTitle id="shortcuts-title" className="sr-only">
             Keyboard Shortcuts

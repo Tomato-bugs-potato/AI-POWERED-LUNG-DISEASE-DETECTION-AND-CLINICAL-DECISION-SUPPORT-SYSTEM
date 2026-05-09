@@ -27,6 +27,7 @@ class User(Base):
     role: Mapped[Role] = mapped_column(Enum(Role), nullable=False)
     status: Mapped[UserStatus] = mapped_column(Enum(UserStatus), default=UserStatus.Active, nullable=False)
     phone_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     last_login: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)

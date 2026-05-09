@@ -46,8 +46,8 @@ export function DashboardHeader() {
                             key={item.name}
                             href={item.href}
                             className={`relative flex items-center px-6 py-2.5 rounded-full text-sm font-extrabold transition-all duration-200 whitespace-nowrap ${isActive
-                                    ? 'bg-[#1C2222] text-white shadow-sm'
-                                    : 'text-black hover:text-gray-800'
+                                ? 'bg-[#1C2222] text-white shadow-sm'
+                                : 'text-black hover:text-gray-800'
                                 }`}
                         >
                             <span>{item.name}</span>
@@ -69,17 +69,17 @@ export function DashboardHeader() {
 
             {/* User Profile */}
             <div className="flex items-center gap-4 ml-auto shrink-0">
-                <div className="flex items-center gap-3 bg-white pl-3 pr-4 py-1.5 rounded-full ml-2">
+                <div className="flex items-center gap-3 bg-white dark:bg-zinc-900/80 pl-3 pr-4 py-1.5 rounded-full ml-2 shadow-sm border border-slate-100 dark:border-zinc-800">
                     <Avatar className="size-8 sm:size-10 ring-2 ring-[#1C2222] ring-offset-1">
                         <AvatarFallback className="bg-[#4BA0A2] text-white font-bold text-xs sm:text-sm">
                             {displayedUser?.name ? displayedUser.name.charAt(0).toUpperCase() : 'A'}
                         </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <span className="text-xs font-bold text-gray-400 leading-tight uppercase text-[10px]">
+                        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 leading-tight uppercase text-[10px]">
                             {currentRole.replace('_', ' ')}
                         </span>
-                        <span className="text-sm font-extrabold text-[#334155] leading-tight">
+                        <span className="text-sm font-extrabold text-[#334155] dark:text-white leading-tight">
                             {displayedUser?.name || 'Admin'}
                         </span>
                     </div>

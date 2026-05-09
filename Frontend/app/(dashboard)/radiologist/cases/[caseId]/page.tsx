@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle, RotateCcw, Flame, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 
 import { ImageViewer } from '@/components/radiologist/ImageViewer';
 import { ConfidenceSlider } from '@/components/radiologist/ConfidenceSlider';
+import { ClassificationBanner } from '@/components/shared/ClassificationBanner';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { CaseStatusBadge } from '@/components/shared/CaseStatusBadge';
 import { Prediction, Case, DiseaseClass } from '@/types';
@@ -40,6 +41,70 @@ const fetchImageBlobUrl = async (imageId: string): Promise<string> => {
     return URL.createObjectURL(imgRes.data);
 };
 
+const fetchSavedReview = async (id: string): Promise<any | null> => {
+    try {
+        const r = await api.get(`/reviews/${id}`);
+        return r.data;
+    } catch {
+        return null;
+    }
+};
+
+const fetchCaseDetails = async (id: string): Promise<any> => {
+    const [c, savedReview] = await Promise.all([
+        fetchCaseMeta(id),
+        fetchSavedReview(id),
+    ]);
+    if (!c) return null;
+
+    const firstImage = c.images?.[0];
+    let fileUrl = '';
+    if (firstImage?.image_id) {
+        try {
+            fileUrl = await fetchImageBlobUrl(firstImage.image_id);
+        } catch (err: any) {
+            console.error(
+                `[ReviewPredictionsPage] /images/${firstImage.image_id}/proxy failed:`,
+                err?.response?.status,
+                err?.response?.data || err?.message,
+            );
+        }
+    }
+
+    // Prefer the radiologist's saved edits over the raw AI predictions.
+    const aiPredictions = firstImage?.inference_results?.[0]?.predictions || [];
+    const editedPredictions = savedReview?.annotations?.edited_predictions || null;
+    const sourcePredictions = editedPredictions || aiPredictions;
+    const predictions = sourcePredictions.map((p: any, i: number) => ({
+        ...p,
+        id: p.id || `pred-${i}`,
+    }));
+
+    const aiClassification = firstImage?.inference_results?.[0]?.classification || null;
+    const lungSegmentation = firstImage?.inference_results?.[0]?.lung_segmentation || null;
+
+    return {
+        case_id: c.case_id,
+        patient_id: c.patient?.patient_id || c.patient_id,
+        status: c.status,
+        priority: c.priority,
+        image: { image_id: firstImage?.image_id, file_url: fileUrl },
+        inference_result: {
+            predictions,
+            classification: aiClassification,
+            lung_segmentation: lungSegmentation,
+            // True once the background inference task has saved a result
+            ready: !!firstImage?.inference_results?.[0],
+        },
+        saved_review: savedReview
+            ? {
+                notes: savedReview.notes || '',
+                confidence_threshold_applied: savedReview.confidence_threshold_applied ?? null,
+            }
+            : null,
+    };
+};
+
 export default function ReviewPredictionsPage() {
     const params = useParams();
     const router = useRouter();
@@ -48,7 +113,13 @@ export default function ReviewPredictionsPage() {
     const { data: caseData, isLoading } = useQuery({
         queryKey: ['case', caseId],
         queryFn: () => fetchCaseDetails(caseId),
+        // AI inference runs in the background after upload. Poll the case until
+        // results land so the page picks them up without a manual refresh.
+        refetchInterval: (query) => (query.state.data?.inference_result?.ready ? false : 4000),
+        refetchIntervalInBackground: false,
     });
+
+    const aiReady = !!caseData?.inference_result?.ready;
 
     // State
     const [annotations, setAnnotations] = React.useState<Prediction[]>([]);
@@ -56,24 +127,82 @@ export default function ReviewPredictionsPage() {
     const [notes, setNotes] = React.useState('');
     const [showAnnotations, setShowAnnotations] = React.useState(true);
     const [showScores, setShowScores] = React.useState(true);
+    const [showHeatmap, setShowHeatmap] = React.useState(false);
     const [editingId, setEditingId] = React.useState<string | null>(null);
     const [priority, setPriority] = React.useState<string>('Non_Critical');
     const [confirmRemoveAll, setConfirmRemoveAll] = React.useState(false);
     const [confirmRevert, setConfirmRevert] = React.useState(false);
 
-    // Initialize annotations from AI inference
+    const imageId = caseData?.image?.image_id;
+    const { data: heatmapBlobUrl, isFetching: isFetchingHeatmap } = useQuery({
+        queryKey: ['heatmap', imageId],
+        enabled: !!imageId && showHeatmap,
+        staleTime: 15 * 60 * 1000, // matches backend Cache-Control max-age=900
+        queryFn: async () => {
+            const resp = await api.get(`/inference/${imageId}/heatmap`, { responseType: 'blob' });
+            return URL.createObjectURL(resp.data);
+        },
+    });
+
+    React.useEffect(() => {
+        return () => {
+            if (heatmapBlobUrl) URL.revokeObjectURL(heatmapBlobUrl);
+        };
+    }, [heatmapBlobUrl]);
+
+    const handleToggleHeatmap = () => {
+        if (!showHeatmap && !imageId) {
+            toast.error('Image not loaded yet');
+            return;
+        }
+        setShowHeatmap(v => !v);
+    };
+
+    // Hydrate from server: prefer saved review edits, then AI predictions.
     React.useEffect(() => {
         if (caseData?.inference_result?.predictions) {
-            setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions))); // Deep copy
+            setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions)));
         }
         if (caseData?.priority) {
             setPriority(caseData.priority);
+        }
+        if (caseData?.saved_review) {
+            setNotes(caseData.saved_review.notes || '');
+            if (typeof caseData.saved_review.confidence_threshold_applied === 'number') {
+                setThreshold(caseData.saved_review.confidence_threshold_applied);
+            }
         }
     }, [caseData]);
 
     const visibleAnnotations = annotations.filter(
         a => !a.is_false_positive && (a.confidence_score * 100) >= threshold
     );
+
+    // UI-only confidence boost. When the image-level classifier is highly
+    // confident in the same class a detection box names (e.g. classifier
+    // tuberculosis=0.90 + a 0.4 TB box), the box's raw YOLO score under-sells
+    // the finding. Surface a boosted confidence in the viewer + sidebar while
+    // keeping the raw confidence_score on the stored annotation so filtering,
+    // edits, and persisted reviews remain truthful.
+    const classProbs: Record<string, number> = caseData?.inference_result?.classification?.probabilities || {};
+    const lookupClassProb = (cls: string) =>
+        classProbs[cls] ?? classProbs[cls?.toLowerCase()] ?? classProbs[cls?.toUpperCase()] ?? 0;
+
+    const getDisplayConfidence = React.useCallback((ann: Prediction): number => {
+        const clsProb = lookupClassProb(ann.disease_class);
+        // Only boost when classifier is genuinely confident (>= 0.7). Below
+        // that, classifier signal is too noisy to override the detector.
+        if (clsProb < 0.7) return ann.confidence_score;
+        return Math.max(ann.confidence_score, clsProb * 0.75);
+        // classProbs is recomputed every render from caseData, intentional
+        // dep is caseData via the parent closure.
+    }, [caseData]);
+
+    const displayAnnotations: Prediction[] = visibleAnnotations.map(a => {
+        const boosted = getDisplayConfidence(a);
+        if (boosted <= a.confidence_score) return a;
+        return { ...a, confidence_score: boosted };
+    });
 
     const handleUpdateAnnotation = (updatedAnns: Prediction[]) => {
         // Merge new bounding box changes while keeping metadata like is_false_positive
@@ -121,10 +250,11 @@ export default function ReviewPredictionsPage() {
                 notes,
                 confidence_threshold_applied: threshold,
                 priority,
-            }).catch(() => { });
+            });
             toast.success('Progress saved');
-        } catch (e) {
-            toast.error('Failed to save progress');
+        } catch (e: any) {
+            console.error('[ReviewPredictionsPage] save failed:', e?.response?.status, e?.response?.data);
+            toast.error(e?.response?.data?.detail || 'Failed to save progress');
         }
     };
 
@@ -203,9 +333,24 @@ export default function ReviewPredictionsPage() {
                                 size="sm"
                                 className={`h-8 ${showAnnotations ? 'text-blue-400' : 'text-zinc-400'}`}
                                 onClick={() => setShowAnnotations(!showAnnotations)}
+                                disabled={showHeatmap}
+                                title={showHeatmap ? 'Boxes are baked into the heatmap view' : ''}
                             >
                                 {showAnnotations ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
                                 Overlays
+                            </Button>
+                            <div className="w-px h-4 bg-zinc-700 mx-1" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 ${showHeatmap ? 'text-orange-400' : 'text-zinc-400'}`}
+                                onClick={handleToggleHeatmap}
+                                disabled={isFetchingHeatmap}
+                            >
+                                {isFetchingHeatmap
+                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    : <Flame className="mr-2 h-4 w-4" />}
+                                Heatmap
                             </Button>
                             <div className="w-px h-4 bg-zinc-700 mx-1" />
                             <Button
@@ -220,15 +365,31 @@ export default function ReviewPredictionsPage() {
                         </div>
                     </div>
 
+                    <ClassificationBanner classification={caseData.inference_result?.classification} />
                     <div className="flex-1 w-full bg-black relative">
-                        <ImageViewer
-                            imageUrl={caseData.image.file_url}
-                            annotations={visibleAnnotations} // Pass visible only
-                            mode="edit"
-                            onAnnotationsChange={handleUpdateAnnotation}
-                            showAnnotations={showAnnotations}
-                            showScores={showScores}
-                        />
+                        {aiReady ? (
+                            <ImageViewer
+                                imageUrl={showHeatmap && heatmapBlobUrl ? heatmapBlobUrl : caseData.image.file_url}
+                                annotations={displayAnnotations}
+                                lungSegmentation={caseData.inference_result.lung_segmentation}
+                                mode={showHeatmap ? 'view' : 'edit'}
+                                onAnnotationsChange={handleUpdateAnnotation}
+                                showAnnotations={showAnnotations && !showHeatmap}
+                                showScores={showScores && !showHeatmap}
+                            />
+                        ) : (
+                            // Hold the X-ray off-screen until AI results land, so the
+                            // radiologist isn't tempted to read a bare image before
+                            // the model's findings are even in.
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-zinc-300">
+                                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                                <div className="text-sm font-medium">Running AI analysis…</div>
+                                <div className="text-xs text-zinc-500 max-w-xs text-center">
+                                    Lung segmentation, detection, and classification are running.
+                                    This usually takes a few seconds.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -307,7 +468,7 @@ export default function ReviewPredictionsPage() {
                                                     <div className="flex items-center gap-2">
                                                         {!isDeleted && (
                                                             <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                                                {(ann.confidence_score * 100).toFixed(1)}%
+                                                                {(getDisplayConfidence(ann) * 100).toFixed(1)}%
                                                             </span>
                                                         )}
                                                     </div>

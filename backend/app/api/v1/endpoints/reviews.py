@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 import uuid
 
 from app.db.session import get_db
@@ -91,7 +91,7 @@ async def submit_review_to_doctor(
     await log_action(db, AuditAction.REVIEW_SENT_TO_DOCTOR, user_id=current_user.user_id, case_id=case_id)
     return review
 
-@router.get("/{case_id}", response_model=ReviewResponse, dependencies=[Depends(require_rad_or_doc)])
+@router.get("/{case_id}", response_model=Optional[ReviewResponse], dependencies=[Depends(require_rad_or_doc)])
 async def get_review(
     case_id: uuid.UUID,
     db: AsyncSession = Depends(get_db)
@@ -100,7 +100,4 @@ async def get_review(
     result = await db.execute(stmt)
     review = result.scalar_one_or_none()
     
-    if not review:
-        raise HTTPException(status_code=404, detail="Review not found for this case")
-        
     return review

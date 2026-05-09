@@ -1,7 +1,7 @@
- import { serverApi } from '@/lib/server-api';
+import { serverApi } from '@/lib/server-api';
 import { PatientDetailView, PatientDetailData } from '@/components/dashboard/doctor/patients/PatientDetailView';
 
- const fetchPatientDetailData = async (id: string): Promise<PatientDetailData> => {
+const fetchPatientDetailData = async (id: string): Promise<PatientDetailData> => {
     try {
         const response = await serverApi.get(`/patients/${id}`);
         const p = response;
@@ -41,8 +41,8 @@ import { PatientDetailView, PatientDetailData } from '@/components/dashboard/doc
     }
 };
 
-export default async function PatientDetailPage({ params }: { params: { patientId: string } }) {
-    const { patientId } = params;
+export default async function PatientDetailPage({ params }: { params: Promise<{ patientId: string }> }) {
+    const { patientId } = await params;
     const initialData = await fetchPatientDetailData(patientId);
 
     return (

@@ -42,9 +42,6 @@ api.interceptors.response.use(
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
-            if (isPublicCasesRoute()) {
-                return Promise.reject(error);
-            }
             originalRequest._retry = true;
 
             try {

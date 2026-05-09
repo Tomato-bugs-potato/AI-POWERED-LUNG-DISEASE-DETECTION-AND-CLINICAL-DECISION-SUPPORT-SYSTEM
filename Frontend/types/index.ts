@@ -60,14 +60,21 @@ export interface Prediction {
     disease_class: DiseaseClass;
     bounding_box: BoundingBox;
     confidence_score: number;
+    segmentation?: number[][]; // Polygon as [x, y][]
     is_false_positive?: boolean; // For radiologist review
 }
 
 export interface InferenceResult {
     inference_id: string;
     predictions: Prediction[];
+    classification?: {
+        disease_class: string;
+        confidence_score: number;
+        probabilities?: Record<string, number>;
+    };
+    lung_segmentation?: number[][][]; // List of polygons, each is [x, y][]
     model_version: string;
-    processing_time_ms: number;
+    processing_time_sec: number;
 }
 
 export interface RadiologistReview {

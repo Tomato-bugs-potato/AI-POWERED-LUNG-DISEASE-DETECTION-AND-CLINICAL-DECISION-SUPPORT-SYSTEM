@@ -8,43 +8,64 @@ const fetchAdminStats = async () => {
         serverApi.get('/cases'),
     ]);
 
-    const users = results[0].status === 'fulfilled' ? results[0].value : [];
+    const usersRaw = results[0].status === 'fulfilled' ? results[0].value : [];
     const logsData = results[1].status === 'fulfilled' ? results[1].value : null;
     const casesData = results[2].status === 'fulfilled' ? results[2].value : null;
 
-    const logs = logsData?.items || logsData || [];
-    const cases = casesData?.items || casesData || [];
+    const users = Array.isArray(usersRaw) ? usersRaw : usersRaw?.items || [];
+    const logs = Array.isArray(logsData) ? logsData : logsData?.items || [];
+    const cases = Array.isArray(casesData) ? casesData : casesData?.items || [];
 
-    const totalUsers = Array.isArray(users) ? users.length : (users?.total || 0);
-    const activeUsers = Array.isArray(users) ? users.filter((u: any) => u.status === 'Active').length : 0;
-    const totalCases = Array.isArray(cases) ? cases.length : 0;
+    const totalUsers = users.length;
+    const activeUsers = users.filter((u: any) => u.status === 'Active').length;
+    const totalCases = cases.length;
 
-    const recentLogs = Array.isArray(logs) ? logs.slice(0, 5).map((log: any, i: number) => ({
-        id: log.log_id || String(i),
-        level: log.action_type?.toLowerCase().includes('fail') || log.action_type?.toLowerCase().includes('error') ? 'error' :
-            log.action_type?.toLowerCase().includes('warn') ? 'warning' : 'info',
-        message: `${log.action_type || 'Action'} by user ${log.user_id?.substring(0, 8) || 'system'}`,
-        time: log.timestamp ? new Date(log.timestamp).toLocaleString() : 'recently',
-    })) : [];
+    // Most recent log entries (sorted newest-first) for the activity feed.
+    const sortedLogs = [...logs].sort((a: any, b: any) => {
+        const ta = new Date(a.timestamp || 0).getTime();
+        const tb = new Date(b.timestamp || 0).getTime();
+        return tb - ta;
+    });
+    const recentLogs = sortedLogs.slice(0, 8).map((log: any, i: number) => {
+        const action = String(log.action_type || '').toLowerCase();
+        const level: 'info' | 'warning' | 'error' =
+            action.includes('fail') || action.includes('error')
+                ? 'error'
+                : action.includes('warn')
+                  ? 'warning'
+                  : 'info';
+        return {
+            id: log.log_id || String(i),
+            level,
+            message: `${log.action_type || 'Action'} by user ${log.user_id?.substring(0, 8) || 'system'}`,
+            time: log.timestamp ? new Date(log.timestamp).toLocaleString() : 'recently',
+            iso: log.timestamp,
+        };
+    });
 
-    const errorCount = recentLogs.filter((l: any) => l.level === 'error').length;
+    const errorCount = recentLogs.filter((l) => l.level === 'error').length;
 
     return {
-        systemHealth: 98,
-        uptime: '99.9%',
+        // Real values from the backend.
         totalUsers,
         activeToday: activeUsers,
         casesProcessed: totalCases,
-        storageUsedGB: 0,
-        storageTotalGB: 1000,
-        modelAccuracy: '94.2%',
         recentLogs,
         errorCount,
+        users,
+        logs,
+        cases,
+        // Infra metrics aren't measured yet — return undefined so the UI
+        // shows "—" instead of fake numbers (was systemHealth=98%, etc.).
+        systemHealth: undefined,
+        uptime: undefined,
+        storageUsedGB: undefined,
+        storageTotalGB: undefined,
+        modelAccuracy: undefined,
     };
 };
 
 export default async function AdminDashboardPage() {
     const stats = await fetchAdminStats();
-
     return <AdminDashboardView stats={stats} />;
 }

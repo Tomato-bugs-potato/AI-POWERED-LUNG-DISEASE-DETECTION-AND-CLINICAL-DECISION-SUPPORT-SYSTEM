@@ -5,13 +5,23 @@ from minio.error import S3Error
 from app.config import settings
 
 
-# Initialize minio client
+# Internal client — used for put/get over the docker network
 minio_client = Minio(
     settings.MINIO_ENDPOINT.replace("http://", "").replace("https://", ""),
     access_key=settings.MINIO_ACCESS_KEY,
     secret_key=settings.MINIO_SECRET_KEY,
     secure=settings.MINIO_SECURE
 )
+
+# External client — used ONLY to mint presigned URLs whose Host header will
+# be the public ngrok hostname. SigV4 signs the Host header, so the URL must
+# be signed against the same host the downloader will send.
+_minio_external_client = Minio(
+    settings.MINIO_EXTERNAL_HOST,
+    access_key=settings.MINIO_ACCESS_KEY,
+    secret_key=settings.MINIO_SECRET_KEY,
+    secure=True,  # ngrok terminates TLS
+) if settings.MINIO_EXTERNAL_HOST else None
 
 def ensure_buckets_exist():
     """Create buckets if they do not exist"""
@@ -40,18 +50,32 @@ def upload_file(bucket_name: str, object_name: str, data: bytes, content_type: s
     except Exception as e:
         raise Exception(f"Upload to MinIO failed: {str(e)}")
 
-def get_presigned_url(bucket_name: str, object_name: str, expires_sec: int = settings.PRESIGNED_URL_EXPIRE_SECONDS) -> str:
-    """Generate a presigned GET URL valid for X seconds"""
+def get_presigned_url(
+    bucket_name: str,
+    object_name: str,
+    expires_sec: int = settings.PRESIGNED_URL_EXPIRE_SECONDS,
+    external_host: str | None = None,
+) -> str:
+    """Generate a presigned GET URL valid for X seconds.
+
+    external_host: when truthy, mint the URL with the external MinIO client
+    so the signature is computed against the public host (ngrok). The URL
+    can then be fetched from outside the docker network. When falsy, mint
+    against minio:9000 and rewrite to localhost for browser use.
+    """
     try:
+        if external_host and _minio_external_client is not None:
+            return _minio_external_client.presigned_get_object(
+                bucket_name,
+                object_name,
+                expires=datetime.timedelta(seconds=expires_sec),
+            )
         url = minio_client.presigned_get_object(
-            bucket_name, 
-            object_name, 
+            bucket_name,
+            object_name,
             expires=datetime.timedelta(seconds=expires_sec)
         )
-        # Replace Docker-internal hostname with browser-accessible localhost
-        # (browser runs on the same machine as MinIO, so localhost works)
-        url = url.replace("minio:9000", "localhost:9000")
-        return url
+        return url.replace("minio:9000", "localhost:9000")
     except Exception as e:
         raise Exception(f"URL generation failed: {str(e)}")
 

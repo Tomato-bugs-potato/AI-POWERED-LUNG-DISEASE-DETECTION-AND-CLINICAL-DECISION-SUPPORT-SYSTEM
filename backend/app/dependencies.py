@@ -35,7 +35,8 @@ async def get_current_user(
         from app.core.redis import get_redis
         redis = await get_redis()
         if redis is not None:
-            is_blacklisted = await redis.get(f"blacklist:user:{user_id_str}")
+            from app.core.security import hash_token
+            is_blacklisted = await redis.get(f"blacklist:token:{hash_token(token)}")
             if is_blacklisted:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

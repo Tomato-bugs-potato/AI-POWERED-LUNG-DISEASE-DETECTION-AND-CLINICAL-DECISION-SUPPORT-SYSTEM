@@ -1,9 +1,28 @@
 import io
+import re
 import uuid
 import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML
 import base64
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+
+
+def _strip_html(value: str | None) -> str:
+    """Convert rich-text HTML notes to plain text for the PDF.
+
+    The rich-text editor stores notes as HTML (<p>, <strong>, lists). Jinja
+    autoescape would otherwise render those tags as literal text in the PDF.
+    """
+    if not value:
+        return ""
+    text = _TAG_RE.sub(" ", value)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&")
+    text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"')
+    return _WS_RE.sub(" ", text).strip()
 
 def generate_pdf_report(
     case_data: dict, 
@@ -22,49 +41,103 @@ def generate_pdf_report(
     orig_b64 = base64.b64encode(original_img_bytes).decode('utf-8')
     anno_b64 = base64.b64encode(annotated_img_bytes).decode('utf-8')
     
-    # 2. Setup Jinja template context
-    # Create an inline generic template string for now to avoid needing separate files
+    # 2. Single-page A4 template. Sized for clinic-default A4; sections use
+    # tight typography so a normal case (≤6 predictions, short notes) fits
+    # without overflow. Page-break-avoidance is set on every section.
     template_str = """
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; line-height: 1.5; }
-            h1, h2 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 5px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .section { margin-bottom: 25px; }
-            .grid { display: flex; flex-wrap: wrap; margin: -10px; }
-            .col { flex: 1; padding: 10px; min-width: 200px; }
-            .images { display: flex; gap: 20px; margin-top: 20px; }
+            @page {
+                size: A4;
+                margin: 10mm 12mm;
+            }
+            html, body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                font-size: 8.5pt;
+                line-height: 1.25;
+                color: #1f2937;
+                margin: 0;
+                padding: 0;
+            }
+            .section { margin-bottom: 6px; page-break-inside: avoid; }
+            h1 { font-size: 13pt; margin: 0 0 1px 0; color: #111827; }
+            h2 {
+                font-size: 8.5pt;
+                margin: 0 0 3px 0;
+                color: #2c3e50;
+                border-bottom: 1px solid #d1d5db;
+                padding-bottom: 1px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            h3 { font-size: 7.5pt; margin: 0 0 2px 0; color: #374151; font-weight: 600; }
+            p { margin: 1px 0; }
+            .header { text-align: center; margin-bottom: 7px; padding-bottom: 5px; border-bottom: 1.5px solid #2c3e50; }
+            .header .sub { font-size: 7.5pt; color: #6b7280; margin-top: 1px; }
+            .meta-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px 12px;
+                margin-bottom: 6px;
+            }
+            .meta-cell { font-size: 8pt; }
+            .meta-cell .label { color: #6b7280; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.04em; }
+            .images { display: flex; gap: 8px; margin: 4px 0; }
             .img-container { flex: 1; text-align: center; }
-            img { max-width: 100%; height: auto; border: 1px solid #ccc; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f8f9fa; }
-            .critical { color: #dc3545; font-weight: bold; }
-            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #7f8c8d; }
+            .img-container img {
+                max-width: 100%;
+                max-height: 230px;
+                height: auto;
+                object-fit: contain;
+                border: 1px solid #d1d5db;
+            }
+            table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+            th, td { border: 1px solid #d1d5db; padding: 2px 5px; text-align: left; }
+            th { background-color: #f3f4f6; font-weight: 600; }
+            .critical { color: #dc2626; font-weight: 700; }
+            .two-col {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .notes-body {
+                font-size: 8pt;
+                white-space: pre-wrap;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 6;
+                -webkit-box-orient: vertical;
+            }
+            .footer {
+                position: fixed;
+                bottom: 4mm;
+                left: 12mm;
+                right: 12mm;
+                text-align: center;
+                font-size: 6.5pt;
+                color: #9ca3af;
+                border-top: 1px solid #e5e7eb;
+                padding-top: 2px;
+            }
         </style>
     </head>
     <body>
         <div class="header">
             <h1>{{ hospital.name }}</h1>
-            <p><strong>Clinical Diagnostic Report</strong></p>
-            <p>Date: {{ generated_at }} | Report ID: {{ report_id }}</p>
+            <div class="sub">Clinical Diagnostic Report &middot; {{ generated_at }} &middot; Report ID: {{ report_id[:8] }}</div>
         </div>
 
-        <div class="section">
-            <h2>Patient Information</h2>
-            <p><strong>ID:</strong> {{ patient.id }} &nbsp;|&nbsp; 
-               <strong>Age:</strong> {{ patient.age }} &nbsp;|&nbsp; 
-               <strong>Sex:</strong> {{ patient.sex }}</p>
-            <p><strong>Visit Date:</strong> {{ case.visit_date }} &nbsp;|&nbsp; 
-               <strong>Consent:</strong> {% if patient.consent %}Recorded{% else %}Not Recorded{% endif %}</p>
-        </div>
-
-        <div class="section">
-            <h2>Case Details</h2>
-            <p><strong>Case ID:</strong> {{ case.id }}</p>
-            <p><strong>Urgency:</strong> <span class="{% if diagnosis.urgency == 'Critical' %}critical{% endif %}">{{ diagnosis.urgency }}</span></p>
+        <div class="meta-grid">
+            <div class="meta-cell">
+                <span class="label">Patient</span>
+                <div>ID {{ patient.id }} &middot; Age {{ patient.age }} &middot; Sex {{ patient.sex }} &middot; Consent: {% if patient.consent %}Recorded{% else %}Not Recorded{% endif %}</div>
+            </div>
+            <div class="meta-cell">
+                <span class="label">Case</span>
+                <div>ID {{ case.id[:13] }} &middot; Visit {{ case.visit_date }} &middot; Urgency: <span class="{% if diagnosis.urgency == 'Critical' %}critical{% endif %}">{{ diagnosis.urgency }}</span></div>
+            </div>
         </div>
 
         <div class="section images">
@@ -73,59 +146,62 @@ def generate_pdf_report(
                 <img src="data:image/png;base64,{{ orig_img }}" alt="Original">
             </div>
             <div class="img-container">
-                <h3>AI Findings</h3>
+                <h3>AI Findings (Annotated)</h3>
                 <img src="data:image/png;base64,{{ anno_img }}" alt="Annotated">
             </div>
         </div>
 
         <div class="section">
-            <h2>AI Model Findings (v{{ ai.model_version }})</h2>
+            <h2>AI Model Findings &middot; v{{ ai.model_version }}</h2>
             <table>
                 <tr>
-                    <th>Disease Class</th>
-                    <th>Confidence</th>
+                    <th style="width: 35%;">Disease Class</th>
+                    <th style="width: 20%;">Confidence</th>
                     <th>Location (x, y, w, h)</th>
                 </tr>
-                {% for pred in ai.predictions %}
+                {% for pred in ai.predictions[:6] %}
                 <tr>
                     <td>{{ pred.disease_class }}</td>
                     <td>{{ "%.1f"|format(pred.confidence_score * 100) }}%</td>
-                    <td>({{ pred.bounding_box.x }}, {{ pred.bounding_box.y }}, {{ pred.bounding_box.w }}, {{ pred.bounding_box.h }})</td>
+                    <td>({{ "%.0f"|format(pred.bounding_box.x) }}, {{ "%.0f"|format(pred.bounding_box.y) }}, {{ "%.0f"|format(pred.bounding_box.w) }}, {{ "%.0f"|format(pred.bounding_box.h) }})</td>
                 </tr>
                 {% else %}
                 <tr><td colspan="3">No findings reported by AI.</td></tr>
                 {% endfor %}
+                {% if ai.predictions|length > 6 %}
+                <tr><td colspan="3" style="font-style: italic; color: #6b7280;">+ {{ ai.predictions|length - 6 }} additional findings omitted for brevity</td></tr>
+                {% endif %}
             </table>
         </div>
 
-        <div class="section">
-            <h2>Radiologist Review</h2>
-            <p><strong>Reviewed By:</strong> {{ review.radiologist_name }}</p>
-            <p><strong>Notes:</strong> {{ review.notes or 'None' }}</p>
-        </div>
-
-        <div class="section">
-            <h2>Final Diagnosis</h2>
-            <p><strong>Diagnosed By:</strong> Dr. {{ diagnosis.doctor_name }}</p>
-            <p><strong>Primary Diagnosis:</strong> {{ diagnosis.primary }}</p>
-            <p><strong>Notes / Remarks:</strong></p>
-            <p>{{ diagnosis.notes }}</p>
+        <div class="section two-col">
+            <div>
+                <h2>Radiologist Review</h2>
+                <p><strong>By:</strong> {{ review.radiologist_name }}</p>
+                <div class="notes-body">{{ review.notes|striphtml or 'None' }}</div>
+            </div>
+            <div>
+                <h2>Final Diagnosis</h2>
+                <p><strong>By:</strong> Dr. {{ diagnosis.doctor_name }}</p>
+                <p><strong>Primary:</strong> {{ diagnosis.primary }}</p>
+                <div class="notes-body">{{ diagnosis.notes|striphtml or 'No notes.' }}</div>
+            </div>
         </div>
 
         <div class="section">
             <h2>Treatment Recommendations</h2>
-            <p>{{ diagnosis.treatment or 'N/A' }}</p>
+            <div class="notes-body">{{ diagnosis.treatment|striphtml or 'N/A' }}</div>
         </div>
 
         <div class="footer">
-            <p>This report was auto-generated by the Clinical Decision Support System.</p>
-            <p><i>Confidential Medical Record. Do not distribute.</i></p>
+            Auto-generated by the Clinical Decision Support System &middot; Confidential medical record &middot; Do not distribute
         </div>
     </body>
     </html>
     """
 
     env = Environment(autoescape=select_autoescape(['html', 'xml']))
+    env.filters["striphtml"] = _strip_html
     template = env.from_string(template_str)
     
     html_content = template.render(

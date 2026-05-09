@@ -49,12 +49,30 @@ async def lifespan(app: FastAPI):
             # Retry with checkfirst — handles pre-existing enum types
             await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
 
-        if settings.SEED_TEST_USERS:
-            async with async_session_maker() as session:
-                for email, name, role in [
-                    ("admin@test.com", "System Admin", Role.Admin),
-                    ("doctor@test.com", "Dr. Endashaw", Role.Doctor)
-                ]:
+    # Idempotent column additions for tables that already exist. create_all
+    # only creates missing tables — it does not add new columns. Each ALTER
+    # runs in its own transaction so one failure can't poison the others.
+    from sqlalchemy import text
+    column_ddls = [
+        "ALTER TABLE inference_results ADD COLUMN IF NOT EXISTS classification JSONB",
+        "ALTER TABLE inference_results ADD COLUMN IF NOT EXISTS lung_segmentation JSONB",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR",
+    ]
+    for ddl in column_ddls:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(ddl))
+        except Exception as e:
+            logger.warning(f"column ensure failed for [{ddl}]: {e}")
+
+    # Seed test users AFTER the DDL transaction has committed
+    if settings.SEED_TEST_USERS:
+        async with async_session_maker() as session:
+            for email, name, role in [
+                ("admin@test.com", "System Admin", Role.Admin),
+                ("doctor@test.com", "Dr. Endashaw", Role.Doctor)
+            ]:
+                try:
                     result = await session.execute(select(User).where(User.email == email))
                     if not result.scalar_one_or_none():
                         user = User(
@@ -64,12 +82,11 @@ async def lifespan(app: FastAPI):
                             role=role
                         )
                         session.add(user)
-                        try:
-                            await session.commit()
-                            logger.info(f"Seeded default {role.value} user: {email} / password")
-                        except IntegrityError:
-                            await session.rollback()
-                            logger.warning(f"User {email} already exists (race condition), skipped seeding.")
+                        await session.commit()
+                        logger.info(f"Seeded default {role.value} user: {email} / password")
+                except (IntegrityError, Exception) as e:
+                    await session.rollback()
+                    logger.warning(f"Seeding skipped/failed for {email}: {e}")
     
     # Ensure MinIO buckets exist
     from app.services.storage import ensure_buckets_exist

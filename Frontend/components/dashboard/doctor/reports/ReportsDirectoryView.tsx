@@ -154,7 +154,7 @@ export function ReportsDirectoryView({ initialData }: ReportsDirectoryViewProps)
                             </div>
 
                             <Select value={diagnosisFilter} onValueChange={setDiagnosisFilter}>
-                                <SelectTrigger className="h-10 w-full sm:w-[190px] bg-white border-gray-200 rounded-xl font-bold text-slate-700">
+                                <SelectTrigger className="h-10 w-full sm:w-[190px] bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 rounded-xl font-bold text-slate-700 dark:text-gray-200">
                                     <div className="flex items-center gap-2">
                                         <Filter className="h-4 w-4 text-primary" />
                                         <SelectValue placeholder="Diagnosis" />
@@ -171,7 +171,7 @@ export function ReportsDirectoryView({ initialData }: ReportsDirectoryViewProps)
 
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" className="h-12 w-full sm:w-[260px] justify-start text-left font-bold text-slate-700 bg-white border-slate-200 rounded-2xl shadow-sm">
+                                    <Button variant="outline" className="h-12 w-full sm:w-[260px] justify-start text-left font-bold text-slate-700 dark:text-gray-200 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
                                         <CalendarIcon className="mr-3 h-4 w-4 text-primary" />
                                         {dateRange.from ? (
                                             dateRange.to ? (
@@ -180,7 +180,7 @@ export function ReportsDirectoryView({ initialData }: ReportsDirectoryViewProps)
                                                 <span>{format(dateRange.from, "MMM dd, y")}</span>
                                             )
                                         ) : (
-                                            <span className="text-slate-400">Clinical Archive...</span>
+                                            <span className="text-slate-400 dark:text-zinc-500">Clinical Archive...</span>
                                         )}
                                     </Button>
                                 </PopoverTrigger>
@@ -252,8 +252,8 @@ export function ReportsDirectoryView({ initialData }: ReportsDirectoryViewProps)
                                                         <Badge
                                                             variant="outline"
                                                             className={`rounded-md px-2 py-0 border-none font-black text-[9px] uppercase ${r.final_diagnosis === 'Normal'
-                                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                                    : 'bg-amber-100 text-amber-700'
+                                                                ? 'bg-emerald-100 text-emerald-700'
+                                                                : 'bg-amber-100 text-amber-700'
                                                                 }`}
                                                         >
                                                             {r.final_diagnosis}
@@ -287,10 +287,10 @@ export function ReportsDirectoryView({ initialData }: ReportsDirectoryViewProps)
                                 Showing records <span className="text-slate-900">{((page - 1) * itemsPerPage) + 1}</span> to <span className="text-slate-900">{Math.min(page * itemsPerPage, filteredReports.length)}</span> of <span className="text-slate-900">{filteredReports.length}</span>
                             </p>
                             <div className="flex gap-3">
-                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 font-bold px-5 bg-white shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 dark:border-zinc-800 font-bold px-5 bg-white dark:bg-zinc-900 shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
                                     <ChevronLeft className="h-4 w-4 mr-2 text-primary" /> Previous
                                 </Button>
-                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 font-bold px-5 bg-white shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                                <Button variant="outline" size="sm" className="h-10 rounded-2xl border-slate-200 dark:border-zinc-800 font-bold px-5 bg-white dark:bg-zinc-900 shadow-sm hover:shadow transition-all" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
                                     Next Phase <ChevronRight className="h-4 w-4 ml-2 text-primary" />
                                 </Button>
                             </div>

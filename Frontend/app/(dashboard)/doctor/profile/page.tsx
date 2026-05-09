@@ -1,5 +1,5 @@
- import { DoctorProfileView } from '@/components/dashboard/doctor/DoctorProfileView';
+import { ProfileView } from '@/components/shared/ProfileView';
 
 export default function ProfilePage() {
-    return <DoctorProfileView />;
+    return <ProfileView />;
 }

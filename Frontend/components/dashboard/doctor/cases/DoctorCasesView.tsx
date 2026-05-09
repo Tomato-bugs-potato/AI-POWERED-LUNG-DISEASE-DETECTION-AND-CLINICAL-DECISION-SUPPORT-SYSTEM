@@ -105,7 +105,7 @@ export function DoctorCasesView({ initialCases }: DoctorCasesViewProps) {
 
                             <div className="flex flex-wrap gap-3">
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[160px] bg-white border-gray-200 h-10 font-inter font-medium rounded-xl">
+                                    <SelectTrigger className="w-[160px] bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 h-10 font-inter font-medium rounded-xl">
                                         <Filter className="mr-2 h-3.5 w-3.5 text-slate-400" />
                                         <SelectValue placeholder="Status" />
                                     </SelectTrigger>
@@ -117,7 +117,7 @@ export function DoctorCasesView({ initialCases }: DoctorCasesViewProps) {
                                 </Select>
 
                                 <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-                                    <SelectTrigger className="w-[160px] bg-white border-gray-200 h-10 font-inter font-medium rounded-xl">
+                                    <SelectTrigger className="w-[160px] bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 h-10 font-inter font-medium rounded-xl">
                                         <SelectValue placeholder="Urgency" />
                                     </SelectTrigger>
                                     <SelectContent className="font-inter bg-white">
@@ -129,7 +129,7 @@ export function DoctorCasesView({ initialCases }: DoctorCasesViewProps) {
 
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="min-w-[200px] justify-start text-left font-inter font-medium h-10 border-slate-200 bg-white hover:bg-slate-50 rounded-lg">
+                                        <Button variant="outline" className="min-w-[200px] justify-start text-left font-inter font-medium h-10 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg">
                                             <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
                                             {dateRange.from ? (
                                                 dateRange.to ? (
@@ -235,8 +235,8 @@ export function DoctorCasesView({ initialCases }: DoctorCasesViewProps) {
                                                         asChild
                                                         size="sm"
                                                         className={`font-bold text-[11px] rounded-full px-5 h-8 text-white ${c.status === 'Ready_for_Diagnosis'
-                                                                ? (c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C2222] hover:bg-[#334155]')
-                                                                : 'bg-gray-400 hover:bg-gray-500'
+                                                            ? (c.priority === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#1C2222] hover:bg-[#334155]')
+                                                            : 'bg-gray-400 hover:bg-gray-500'
                                                             }`}
                                                     >
                                                         <Link href={`/doctor/cases/${c.case_id}`}>

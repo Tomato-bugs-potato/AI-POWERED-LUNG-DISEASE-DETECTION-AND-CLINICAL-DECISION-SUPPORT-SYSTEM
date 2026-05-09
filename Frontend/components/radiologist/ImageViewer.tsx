@@ -1,16 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Text as KonvaText, Group, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Rect, Text as KonvaText, Group, Transformer, Line } from 'react-konva';
 import useImage from 'use-image';
 import { Prediction } from '@/types';
-import { ZoomIn, ZoomOut, MousePointer2, Move, Square, Trash2, Edit2, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, MousePointer2, Move, Square, Trash2, Edit2, RotateCcw, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ImageViewerProps {
     imageUrl: string;
     annotations: Prediction[];
+    lungSegmentation?: number[][][]; // New: List of polygons [x, y][]
     mode: 'edit' | 'view';
     onAnnotationsChange?: (annotations: Prediction[]) => void;
     showAnnotations?: boolean;
@@ -28,6 +29,7 @@ const CLASS_COLORS: Record<string, string> = {
 export function ImageViewer({
     imageUrl,
     annotations,
+    lungSegmentation,
     mode,
     onAnnotationsChange,
     showAnnotations = true,
@@ -50,6 +52,10 @@ export function ImageViewer({
     const [activeTool, setActiveTool] = React.useState<ToolType>('pan');
     const [selectedId, setSelectedId] = React.useState<string | null>(null);
     const [newAnnotation, setNewAnnotation] = React.useState<{ x: number, y: number, w: number, h: number } | null>(null);
+    const [showLungs, setShowLungs] = React.useState(true);
+
+    // Helper: Flatten [[x,y], [x,y]] to [x,y,x,y] for Konva Line
+    const getPoints = (poly: number[][]) => poly.reduce((acc, pt) => acc.concat(pt), [] as number[]);
 
     React.useEffect(() => {
         // Resize observer to keep canvas responsive
@@ -311,6 +317,21 @@ export function ImageViewer({
 
                     <Tooltip>
                         <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 mr-1 ${showLungs ? 'text-blue-400' : 'text-zinc-400'}`}
+                                onClick={() => setShowLungs(!showLungs)}
+                                disabled={!lungSegmentation?.length}
+                            >
+                                <Activity className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{showLungs ? 'Hide Lung Mask' : 'Show Lung Mask'}</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" aria-label="Zoom Out" className="h-8 w-8 text-zinc-400 hover:text-white" onClick={handleZoomOut}>
                                 <ZoomOut className="h-4 w-4" />
                             </Button>
@@ -379,6 +400,19 @@ export function ImageViewer({
                         {/* Image Background */}
                         <KonvaImage image={image} x={0} y={0} name="image" />
 
+                        {/* Lung Segmentation Overlay */}
+                        {showLungs && lungSegmentation && lungSegmentation.map((poly, i) => (
+                            <Line
+                                key={`lung-${i}`}
+                                points={getPoints(poly)}
+                                closed={true}
+                                stroke="rgba(34, 197, 94, 0.5)"
+                                strokeWidth={2 / scale}
+                                fill="rgba(34, 197, 94, 0.1)"
+                                listening={false}
+                            />
+                        ))}
+
                         {/* Annotations */}
                         {showAnnotations && annotations.filter(a => !a.is_false_positive).map((ann, i) => {
                             const color = CLASS_COLORS[ann.disease_class] || CLASS_COLORS['Other'];
@@ -387,8 +421,6 @@ export function ImageViewer({
                             return (
                                 <Group
                                     key={ann.id || i}
-                                    x={ann.bounding_box.x}
-                                    y={ann.bounding_box.y}
                                     draggable={mode === 'edit' && activeTool === 'select'}
                                     onDragEnd={(e) => handleBoxDragEnd(e, ann.id!)}
                                     onClick={() => {
@@ -398,18 +430,32 @@ export function ImageViewer({
                                 >
                                     {/* The Bounding Box */}
                                     <Rect
+                                        x={ann.bounding_box.x}
+                                        y={ann.bounding_box.y}
                                         width={ann.bounding_box.w}
                                         height={ann.bounding_box.h}
                                         stroke={color}
                                         strokeWidth={isSelected ? 3 / scale : 2 / scale}
-                                        fill={isSelected ? `${color}1A` : 'transparent'} // Add slight fill on select
+                                        fill={isSelected ? `${color}1A` : 'transparent'}
                                         id={ann.id}
                                         name="box"
                                     />
 
+                                    {/* The Segmentation Mask (Polygon) if available */}
+                                    {ann.segmentation && (
+                                        <Line
+                                            points={getPoints(ann.segmentation)}
+                                            closed={true}
+                                            stroke={color}
+                                            strokeWidth={1 / scale}
+                                            fill={`${color}33`}
+                                            listening={false}
+                                        />
+                                    )}
+
                                     {/* Label & Score */}
                                     {showScores && (
-                                        <Group x={0} y={-24 / scale}>
+                                        <Group x={ann.bounding_box.x} y={ann.bounding_box.y - 24 / scale}>
                                             <Rect
                                                 width={(ann.disease_class.length * 8 + 45) / scale}
                                                 height={20 / scale}

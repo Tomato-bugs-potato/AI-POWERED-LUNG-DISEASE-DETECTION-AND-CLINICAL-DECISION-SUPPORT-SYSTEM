@@ -1,296 +1,319 @@
 'use client';
 
-import { Users, Activity, HardDrive, Cpu, Database, AlertCircle, Search, ArrowUpRight } from 'lucide-react';
+import * as React from 'react';
+import Link from 'next/link';
+import {
+    Users,
+    Activity,
+    HardDrive,
+    Cpu,
+    AlertCircle,
+    Search,
+    ShieldCheck,
+    UserCheck,
+    FileText,
+    Server,
+} from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    StatCard,
+    StatGrid,
+    RangeSelect,
+    AreaChartCard,
+    BarChartCard,
+    DonutChartCard,
+    Range,
+    withinRange,
+    dailyBuckets,
+    bumpBucket,
+} from '@/components/dashboard/_kit';
 
-interface AdminStats {
-    systemHealth: number;
-    uptime: string;
+// What the server-side fetcher passes in. Kept loose so the existing
+// page.tsx contract still works without changes.
+export interface AdminStats {
+    systemHealth?: number;
+    uptime?: string;
     totalUsers: number;
     activeToday: number;
     casesProcessed: number;
-    storageUsedGB: number;
-    storageTotalGB: number;
-    modelAccuracy: string;
-    recentLogs: any[];
+    storageUsedGB?: number;
+    storageTotalGB?: number;
+    modelAccuracy?: string;
+    recentLogs: AdminLog[];
     errorCount: number;
+    // Optional raw data so charts can compute their own series.
+    users?: any[];
+    logs?: any[];
+    cases?: any[];
 }
 
+interface AdminLog {
+    id: string;
+    level: 'info' | 'warning' | 'error';
+    message: string;
+    time: string;
+    /** ISO timestamp if available; falls back to `time`. */
+    iso?: string;
+}
+
+const LEVEL_BADGE: Record<AdminLog['level'], string> = {
+    info: 'bg-primary/15 text-primary',
+    warning: 'bg-warning/15 text-warning',
+    error: 'bg-destructive/15 text-destructive',
+};
+
 export function AdminDashboardView({ stats }: { stats: AdminStats }) {
+    const [range, setRange] = React.useState<Range>('week');
+    const [searchQuery, setSearchQuery] = React.useState('');
+
+    // Derive series from raw lists when provided; otherwise stay empty.
+    const charts = React.useMemo(() => {
+        const now = new Date();
+        const days = range === 'today' ? 1 : range === 'week' ? 7 : 30;
+
+        const caseList = stats.cases || [];
+        const logList = stats.logs || [];
+        const userList = stats.users || [];
+
+        // Daily case-creation throughput.
+        const caseBuckets = dailyBuckets(days, now);
+        for (const c of caseList) bumpBucket(caseBuckets, c.created_at || c.updated_at);
+        const caseThroughput = caseBuckets.map((b) => ({ day: b.day, count: b.count }));
+
+        // Daily errors.
+        const errorBuckets = dailyBuckets(days, now);
+        for (const log of logList) {
+            const action = String(log.action_type || '').toLowerCase();
+            const isError = action.includes('fail') || action.includes('error');
+            if (!isError) continue;
+            bumpBucket(errorBuckets, log.timestamp);
+        }
+        const errorTrend = errorBuckets.map((b) => ({ day: b.day, count: b.count }));
+
+        // Users by role.
+        const roleCounts: Record<string, number> = {};
+        for (const u of userList) {
+            const role = u.role || 'Unknown';
+            roleCounts[role] = (roleCounts[role] || 0) + 1;
+        }
+        const usersByRole = Object.entries(roleCounts).map(([label, value]) => ({ label, value }));
+
+        // Cases by status (limited to selected window so it reflects "current load").
+        const statusCounts: Record<string, number> = {};
+        for (const c of caseList) {
+            if (!withinRange(c.created_at || c.updated_at, range, now)) continue;
+            const status = String(c.status || 'Unknown').replace(/_/g, ' ');
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        }
+        const casesByStatus = Object.entries(statusCounts).map(([label, value]) => ({ label, value }));
+
+        return { caseThroughput, errorTrend, usersByRole, casesByStatus };
+    }, [stats, range]);
+
+    const errorsInWindow = React.useMemo(() => {
+        const now = new Date();
+        return (stats.logs || []).filter((log: any) => {
+            const action = String(log.action_type || '').toLowerCase();
+            const isError = action.includes('fail') || action.includes('error');
+            return isError && withinRange(log.timestamp, range, now);
+        }).length;
+    }, [stats.logs, range]);
+
+    const storagePct =
+        stats.storageTotalGB && stats.storageUsedGB != null
+            ? Math.min(100, Math.round((stats.storageUsedGB / stats.storageTotalGB) * 100))
+            : null;
+
+    const filteredLogs = stats.recentLogs.filter((l) =>
+        searchQuery ? l.message.toLowerCase().includes(searchQuery.toLowerCase()) : true,
+    );
+
     return (
-        <div className="space-y-6 sm:space-y-8 pb-10">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-6 pb-10">
+            {/* Header */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#1C2222] dark:text-white">
-                        System Overview
-                    </h1>
-                    <p className="text-sm sm:text-base text-[#1C2222]/40 mt-1 font-medium">Real-time infrastructure and security metrics.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">System Overview</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Workload, errors, storage, and user composition.
+                    </p>
+                </div>
+                <RangeSelect value={range} onChange={setRange} />
+            </div>
+
+            {/* KPI row */}
+            <StatGrid cols={4}>
+                <StatCard
+                    label="Total Users"
+                    value={stats.totalUsers}
+                    sublabel="Across all roles"
+                    icon={<Users className="h-5 w-5" />}
+                    tone="primary"
+                />
+                <StatCard
+                    label="Active Users"
+                    value={stats.activeToday}
+                    sublabel="Status = Active"
+                    icon={<UserCheck className="h-5 w-5" />}
+                    tone="success"
+                />
+                <StatCard
+                    label="Cases Processed"
+                    value={stats.casesProcessed}
+                    sublabel="All time"
+                    icon={<FileText className="h-5 w-5" />}
+                    tone="default"
+                />
+                <StatCard
+                    label="Errors In Window"
+                    value={errorsInWindow}
+                    sublabel="From audit log"
+                    icon={<AlertCircle className="h-5 w-5" />}
+                    tone={errorsInWindow > 0 ? 'destructive' : 'success'}
+                    deltaDirection="lower-is-better"
+                />
+            </StatGrid>
+
+            {/* Audit activity + infra sidebar — pulls the log feed up to row 3 */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                {/* Recent logs */}
+                <div className="bg-card text-card-foreground rounded-2xl border border-border p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-sm font-bold text-foreground">Recent Audit Activity</h2>
+                            <p className="mt-0.5 text-xs text-muted-foreground">Most recent log entries</p>
+                        </div>
+                        <div className="relative w-56">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Filter logs..."
+                                className="pl-9 bg-card border-border"
+                            />
+                        </div>
+                    </div>
+
+                    {filteredLogs.length === 0 ? (
+                        <div className="py-10 text-center">
+                            <Server className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">No log entries match.</p>
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-border">
+                            {filteredLogs.map((log) => (
+                                <li key={log.id} className="flex items-center justify-between gap-3 py-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={`${LEVEL_BADGE[log.level]} border-0 font-bold uppercase rounded-full px-2 text-[10px]`}>
+                                                {log.level}
+                                            </Badge>
+                                            <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <p className="truncate text-sm text-foreground">{log.message}</p>
+                                        </div>
+                                    </div>
+                                    <span className="shrink-0 text-xs text-muted-foreground">{log.time}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    <div className="mt-4 flex justify-end">
+                        <Button asChild variant="ghost" size="sm">
+                            <Link href="/admin/logs">View all logs</Link>
+                        </Button>
+                    </div>
                 </div>
 
-                <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                        placeholder="Search system metrics..."
-                        className="pl-9 bg-white/80 dark:bg-zinc-900 border-[#1C2222]/10 shadow-sm rounded-xl focus:ring-[#4BA0A2]/20"
-                    />
+                {/* Sidebar: compact infra cards */}
+                <div className="space-y-4">
+                    <div className="bg-card text-card-foreground rounded-2xl border border-border p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">System Health</p>
+                                <p className="mt-1 text-xl font-bold text-foreground">
+                                    {stats.systemHealth != null ? `${stats.systemHealth}%` : '—'}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Uptime {stats.uptime ?? '—'}
+                                </p>
+                            </div>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                                <ShieldCheck className="h-4 w-4" />
+                            </div>
+                        </div>
+                        {stats.systemHealth != null && (
+                            <Progress value={stats.systemHealth} className="mt-3 h-2" />
+                        )}
+                    </div>
+
+                    <div className="bg-card text-card-foreground rounded-2xl border border-border p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Storage</p>
+                                <p className="mt-1 text-xl font-bold text-foreground">
+                                    {stats.storageUsedGB != null && stats.storageTotalGB
+                                        ? `${stats.storageUsedGB} / ${stats.storageTotalGB} GB`
+                                        : '—'}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {storagePct != null ? `${storagePct}% used` : 'Not reported'}
+                                </p>
+                            </div>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                                <HardDrive className="h-4 w-4" />
+                            </div>
+                        </div>
+                        {storagePct != null && <Progress value={storagePct} className="mt-3 h-2" />}
+                    </div>
+
+                    <div className="bg-card text-card-foreground rounded-2xl border border-border p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Model Performance</p>
+                                <p className="mt-1 text-xl font-bold text-foreground">
+                                    {stats.modelAccuracy ?? '—'}
+                                </p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">Top-1 accuracy</p>
+                            </div>
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                                <Cpu className="h-4 w-4" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] gap-4 sm:gap-6">
-                <div className="space-y-4 sm:space-y-6">
-                    <div className="rounded-2xl sm:rounded-[2rem] p-3 sm:p-6 lg:p-8">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-black text-[#1C2222] dark:text-gray-100">Statistical Summary</h2>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {/* Card 1: Patients/Personnel */}
-                            <div className="card-push-container">
-                                <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Number of patients</p>
-                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                                    </div>
-                                    <div className="mb-4">
-                                        <Select defaultValue="week">
-                                            <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                                <SelectItem value="week">Week</SelectItem>
-                                                <SelectItem value="month">Month</SelectItem>
-                                                <SelectItem value="year">Year</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-4 flex-1 flex flex-col">
-                                        <div className="sub-card-white flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Adult Patients</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Users className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.activeToday}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="sub-card-white p-4 sm:p-5 flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Total Users</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Users className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.totalUsers}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card 2: Daily Visit / Cases */}
-                            <div className="card-push-container">
-                                <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Daily Visit</p>
-                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                                    </div>
-                                    <div className="mb-4">
-                                        <Select defaultValue="week">
-                                            <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                                <SelectItem value="week">Week</SelectItem>
-                                                <SelectItem value="month">Month</SelectItem>
-                                                <SelectItem value="year">Year</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-4 flex-1 flex flex-col">
-                                        <div className="sub-card-white flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Emergency Room</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Activity className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">78</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="sub-card-white flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Polyclinic</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Database className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.casesProcessed}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card 3: Model Capacity / AI Info */}
-                            <div className="card-push-container">
-                                <div className="card-premium-pocket p-5 sm:p-7 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <p className="text-sm font-extrabold text-[#1C2222]/70">Model Capacity</p>
-                                        <div className="w-9 h-9 rounded-full bg-[#A8D4D6]/60 flex items-center justify-center"><ArrowUpRight className="w-4 h-4 text-[#1C2222]/60" /></div>
-                                    </div>
-                                    <div className="mb-4">
-                                        <Select defaultValue="v2.1">
-                                            <SelectTrigger className="w-fit bg-white dark:bg-zinc-900 font-bold border-none text-[#1C2222] rounded-full px-4 h-8 shadow-sm text-[11px] hover:bg-gray-50 transition-colors focus:ring-0 focus:ring-offset-0">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="rounded-xl border-none shadow-xl bg-white">
-                                                <SelectItem value="v2.1">v2.1</SelectItem>
-                                                <SelectItem value="v2.0">v2.0</SelectItem>
-                                                <SelectItem value="v1.9">v1.9</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-4 flex-1 flex flex-col">
-                                        <div className="sub-card-white flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Accuracy</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Cpu className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.modelAccuracy}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="sub-card-white flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-400/80 uppercase tracking-widest">Uptime</span>
-                                                <div className="h-7 w-7 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center border border-gray-100/50 shadow-sm">
-                                                    <Activity className="h-3.5 w-3.5 text-gray-400" />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-bold text-2xl text-[#1C2222] dark:text-white">{stats.uptime}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4 sm:gap-6">
-                        <div className="card-premium-pocket p-3 sm:p-6 lg:p-8 relative">
-                            <div className="flex justify-between items-center mb-10">
-                                <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">Storage Trends</h3>
-                            </div>
-
-                            <div className="space-y-6">
-                                <div className="space-y-4">
-                                    <div className="flex justify-between">
-                                        <p className="text-[13px] font-bold text-gray-500 dark:text-gray-300">Fast Storage (SSD)</p>
-                                        <span className="text-xs font-bold text-[#FF6B6B]">{stats.storageUsedGB} / {stats.storageTotalGB} GB</span>
-                                    </div>
-                                    <Progress value={(stats.storageUsedGB / stats.storageTotalGB) * 100} className="h-3 bg-white dark:bg-zinc-950 [&>div]:bg-[#FF6B6B] rounded-full" />
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex justify-between">
-                                        <p className="text-[13px] font-bold text-gray-500 dark:text-gray-300">Cold Backup (Cloud)</p>
-                                        <span className="text-xs font-bold text-[#4DA1A9]">1.2 / 5.0 TB</span>
-                                    </div>
-                                    <Progress value={(1200 / 5000) * 100} className="h-3 bg-white dark:bg-zinc-950 [&>div]:bg-[#4DA1A9] rounded-full" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="card-premium-pocket p-3 sm:p-6 lg:p-8 relative">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">System Modules</h3>
-                            </div>
-
-                            <div className="bg-white dark:bg-zinc-950 rounded-xl sm:rounded-[1.5rem] p-3 sm:p-5 shadow-sm mt-4">
-                                <div className="space-y-4">
-                                    {[
-                                        { name: 'Core AI Engine', status: 'Online', icon: Cpu, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                                        { name: 'Database Cluster', status: 'Syncing', icon: Database, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-                                        { name: 'Backup Service', status: 'Idle', icon: HardDrive, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' },
-                                    ].map((mod, i) => (
-                                        <div key={i} className="flex items-center gap-4">
-                                            <div className={`p-2.5 rounded-xl ${mod.bg}`}>
-                                                <mod.icon className={`h-4 w-4 ${mod.color}`} />
-                                            </div>
-                                            <div>
-                                                <h4 className="text-[13px] font-extrabold text-[#334155] dark:text-gray-200">{mod.name}</h4>
-                                                <p className="text-[11px] font-bold text-gray-400 mt-0.5">{mod.status}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            {/* Charts — below the fold */}
+            <div className="grid gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <AreaChartCard
+                        title="Case Throughput"
+                        subtitle={`New cases per day · ${range === 'all' ? 'last 30 days' : 'in window'}`}
+                        data={charts.caseThroughput}
+                    />
                 </div>
+                <DonutChartCard
+                    title="Users by Role"
+                    subtitle="Active accounts in the system"
+                    data={charts.usersByRole}
+                />
+            </div>
 
-                <div className="card-premium-pocket p-3 sm:p-6 lg:p-8">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="font-extrabold text-[#1C2222] dark:text-gray-100 text-base">System Logs</h3>
-                    </div>
-
-                    {stats.errorCount > 0 && (
-                        <div className="mb-8 bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 flex gap-3 items-start relative shadow-sm">
-                            <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-[13px] font-extrabold text-[#334155]">Action Required</p>
-                                <p className="text-[11px] font-bold text-gray-500 mt-1">There are {stats.errorCount} system errors logged recently.</p>
-                                <button className="mt-3 bg-[#334155] text-white rounded-full h-7 text-[11px] font-bold px-4 hover:bg-gray-800 transition-colors">Remind</button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="space-y-6">
-                        {stats.recentLogs.map((log: any) => (
-                            <div key={log.id} className="flex gap-4 group">
-                                <div className="w-14 shrink-0 text-right pt-1">
-                                    <div className="text-[11px] font-extrabold text-[#334155] leading-tight">
-                                        {log.time.split(',')[1]?.trim() || "10:00"}
-                                    </div>
-                                    <div className="text-[10px] font-bold text-gray-400 mt-1">
-                                        {log.time.split(',')[0]}
-                                    </div>
-                                </div>
-
-                                <div className="flex-1 bg-white dark:bg-zinc-950 p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex items-start gap-3">
-                                    <div className={`mt-0.5 h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${log.level === 'error' ? 'bg-red-100 text-red-500' : 'bg-[#E5F3F4] text-[#44A7AD]'}`}>
-                                        {log.level === 'error' ? <AlertCircle className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
-                                    </div>
-                                    <div>
-                                        <div className="text-[13px] font-extrabold text-[#334155] leading-snug">{log.message}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-8 flex justify-center">
-                        <button className="bg-[#FF6B6B] hover:bg-red-500 text-white font-extrabold rounded-full py-3 px-8 text-[13px] transition-colors shadow-sm w-full mx-4">
-                            + View Full Logs
-                        </button>
-                    </div>
-                </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+                <BarChartCard
+                    title="Cases by Status"
+                    subtitle="Pipeline stage in window"
+                    data={charts.casesByStatus}
+                />
+                <AreaChartCard
+                    title="Error Trend"
+                    subtitle="Failed actions per day"
+                    data={charts.errorTrend}
+                />
             </div>
         </div>
     );

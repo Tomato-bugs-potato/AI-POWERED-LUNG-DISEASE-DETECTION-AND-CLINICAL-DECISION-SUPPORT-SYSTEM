@@ -31,7 +31,7 @@ const signupSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Please enter a valid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    role: z.enum(['Doctor', 'Radiologist', 'Lab_Technician'], {
+    role: z.enum(['Doctor', 'Radiologist', 'Admin'], {
         required_error: 'Please select a role',
     }),
 });
@@ -194,7 +194,7 @@ export default function SignupPage() {
                                                         <SelectContent className="w-full bg-white border border-[#1C2222]/10 shadow-lg rounded-xl">
                                                             <SelectItem value="Doctor" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Doctor / Physician</SelectItem>
                                                             <SelectItem value="Radiologist" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Radiologist</SelectItem>
-                                                            <SelectItem value="Lab_Technician" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">Lab Technician</SelectItem>
+                                                            <SelectItem value="Admin" className="hover:bg-[#4BA0A2]/10 focus:bg-[#4BA0A2]/10 cursor-pointer rounded-lg">System Administrator</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />

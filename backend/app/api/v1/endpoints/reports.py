@@ -215,7 +215,12 @@ async def list_reports(
 ):
     stmt = (
         select(Report)
-        .options(selectinload(Report.case).selectinload(Case.diagnosis))
+        .options(
+            selectinload(Report.case).selectinload(Case.patient),
+            selectinload(Report.case).selectinload(Case.diagnosis),
+            selectinload(Report.case).selectinload(Case.radiologist_review),
+            selectinload(Report.case).selectinload(Case.images).selectinload(Image.inference_results),
+        )
         .where(Report.generated_by == current_user.user_id)
         .order_by(Report.generated_at.desc())
         .offset(skip)

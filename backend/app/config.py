@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str
     MINIO_BUCKET_IMAGES: str = "xray-images"
     MINIO_BUCKET_REPORTS: str = "reports"
+    MINIO_BUCKET_AVATARS: str = "avatars"
     MINIO_SECURE: bool = True
     PRESIGNED_URL_EXPIRE_SECONDS: int = 900
     # External hostname browsers use to reach MinIO (e.g. "localhost:9000" in dev,
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
 
     # AI Service
     AI_SERVICE_URL: str
-    AI_INFERENCE_TIMEOUT_SECONDS: int = 120
+    AI_INFERENCE_TIMEOUT_SECONDS: int = 2400
     AI_INTERNAL_API_KEY: str
     AI_MODEL_VERSION: str = "v1.0.0"
 

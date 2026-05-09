@@ -1,0 +1,481 @@
+{
+	"id": "2fe7bc9a-9ec0-4a0a-8004-0be4f0c1a155",
+	"name": "Lung Disease Detection — End-to-End Clinical Workflow",
+	"timestamp": "2026-05-20T10:00:09.880Z",
+	"collection_id": "43361251-a03a688f-3175-4eef-821d-632f8f199440",
+	"folder_id": 0,
+	"environment_id": "0",
+	"totalPass": 14,
+	"delay": 0,
+	"persist": true,
+	"status": "error",
+	"startedAt": "2026-05-20T09:59:55.435Z",
+	"totalFail": 15,
+	"results": [
+		{
+			"id": "c22b79d5-3550-4b9e-bbe6-e6dc7dac52cb",
+			"name": "00 · Health check",
+			"url": "http://localhost:8000/health/",
+			"time": 732,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"Service is up": true,
+				"status is ok": true
+			},
+			"testPassFailCounts": {
+				"Service is up": {
+					"pass": 1,
+					"fail": 0
+				},
+				"status is ok": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				732
+			],
+			"allTests": [
+				{
+					"Service is up": true,
+					"status is ok": true
+				}
+			]
+		},
+		{
+			"id": "434b7c6c-8ee6-47fe-b048-1ea94936a32b",
+			"name": "01 · Admin login (auto-handles OTP)",
+			"url": "http://localhost:8000/api/v1/auth/login",
+			"time": 3373,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"200 OK": true,
+				"Got admin access_token (SKIP_OTP path)": true
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 1,
+					"fail": 0
+				},
+				"Got admin access_token (SKIP_OTP path)": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				3373
+			],
+			"allTests": [
+				{
+					"200 OK": true,
+					"Got admin access_token (SKIP_OTP path)": true
+				}
+			]
+		},
+		{
+			"id": "2d7b1e28-108d-42f2-89fd-4266fb9062d0",
+			"name": "02 · Admin creates Lab Technician",
+			"url": "http://localhost:8000/api/v1/users/admin-create",
+			"time": 118,
+			"responseCode": {
+				"code": 400,
+				"name": "Bad Request"
+			},
+			"tests": {
+				"User exists": true
+			},
+			"testPassFailCounts": {
+				"User exists": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				118
+			],
+			"allTests": [
+				{
+					"User exists": true
+				}
+			]
+		},
+		{
+			"id": "9e5f1036-1620-4eb3-993f-57a1b2258965",
+			"name": "03 · Admin creates Radiologist",
+			"url": "http://localhost:8000/api/v1/users/admin-create",
+			"time": 304,
+			"responseCode": {
+				"code": 400,
+				"name": "Bad Request"
+			},
+			"tests": {
+				"User exists": true
+			},
+			"testPassFailCounts": {
+				"User exists": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				304
+			],
+			"allTests": [
+				{
+					"User exists": true
+				}
+			]
+		},
+		{
+			"id": "ced812c6-1a8f-4ca0-bb1c-9df2aa3dfafd",
+			"name": "04 · Admin creates Doctor",
+			"url": "http://localhost:8000/api/v1/users/admin-create",
+			"time": 14,
+			"responseCode": {
+				"code": 400,
+				"name": "Bad Request"
+			},
+			"tests": {
+				"User exists": true
+			},
+			"testPassFailCounts": {
+				"User exists": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				14
+			],
+			"allTests": [
+				{
+					"User exists": true
+				}
+			]
+		},
+		{
+			"id": "381574fc-31e2-49b8-ba4b-6fe2b2b457fd",
+			"name": "05 · Lab Tech login (auto-handles OTP)",
+			"url": "http://localhost:8000/api/v1/auth/login",
+			"time": 804,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"200 OK": true
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				804
+			],
+			"allTests": [
+				{
+					"200 OK": true
+				}
+			]
+		},
+		{
+			"id": "92c11ab7-4438-4338-ab6e-a1c81a244311",
+			"name": "06 · Lab Tech registers patient",
+			"url": "http://localhost:8000/api/v1/patients/",
+			"time": 114,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"200 OK": true,
+				"consent_recorded is true": true
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 1,
+					"fail": 0
+				},
+				"consent_recorded is true": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				114
+			],
+			"allTests": [
+				{
+					"200 OK": true,
+					"consent_recorded is true": true
+				}
+			]
+		},
+		{
+			"id": "92f7f08c-36c9-4992-a0d4-4820965fa17a",
+			"name": "07 · Lab Tech creates case",
+			"url": "http://localhost:8000/api/v1/cases/",
+			"time": 121,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"200 OK": true,
+				"Case status is Pending_Review": true
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 1,
+					"fail": 0
+				},
+				"Case status is Pending_Review": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				121
+			],
+			"allTests": [
+				{
+					"200 OK": true,
+					"Case status is Pending_Review": true
+				}
+			]
+		},
+		{
+			"id": "fe5ca0de-51f5-4c9a-85b9-457a7ebbd158",
+			"name": "08 - Lab Tech uploads chest X-ray (inline base64, no file attach)",
+			"url": "http://localhost:8000/health/",
+			"time": 6,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"Inline upload returned 200": true,
+				"image_id is captured": false
+			},
+			"testPassFailCounts": {
+				"Inline upload returned 200": {
+					"pass": 1,
+					"fail": 0
+				},
+				"image_id is captured": {
+					"pass": 0,
+					"fail": 1
+				}
+			},
+			"times": [
+				6
+			],
+			"allTests": [
+				{
+					"Inline upload returned 200": true,
+					"image_id is captured": false
+				}
+			]
+		},
+		{
+			"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+			"name": "09 · Poll inference status (until completed)",
+			"url": "http://localhost:8000/api/v1/inference/null/status",
+			"time": 10,
+			"responseCode": {
+				"code": 403,
+				"name": "Forbidden"
+			},
+			"tests": {
+				"Polled successfully": false,
+				"Inference status reachable": false
+			},
+			"testPassFailCounts": {
+				"Polled successfully": {
+					"pass": 0,
+					"fail": 6
+				},
+				"Inference status reachable": {
+					"pass": 0,
+					"fail": 6
+				}
+			},
+			"times": [
+				48,
+				12,
+				13,
+				10,
+				11,
+				10
+			],
+			"allTests": [
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				},
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				},
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				},
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				},
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				},
+				{
+					"Polled successfully": false,
+					"Inference status reachable": false
+				}
+			]
+		},
+		{
+			"id": "38151468-8cc8-4a3c-9ee7-b76dd483e592",
+			"name": "10 · Radiologist login (auto-handles OTP)",
+			"url": "http://localhost:8000/api/v1/auth/login",
+			"time": 1579,
+			"responseCode": {
+				"code": 200,
+				"name": "OK"
+			},
+			"tests": {
+				"200 OK": true
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 1,
+					"fail": 0
+				}
+			},
+			"times": [
+				1579
+			],
+			"allTests": [
+				{
+					"200 OK": true
+				}
+			]
+		},
+		{
+			"id": "21a639a6-603e-4c5e-ae50-7cf620260957",
+			"name": "11 · Radiologist fetches AI predictions",
+			"url": "http://localhost:8000/api/v1/inference/null/result",
+			"time": 41,
+			"responseCode": {
+				"code": 422,
+				"name": "Unprocessable Entity"
+			},
+			"tests": {
+				"200 OK": false,
+				"predictions array present": false
+			},
+			"testPassFailCounts": {
+				"200 OK": {
+					"pass": 0,
+					"fail": 1
+				},
+				"predictions array present": {
+					"pass": 0,
+					"fail": 1
+				}
+			},
+			"times": [
+				41
+			],
+			"allTests": [
+				{
+					"200 OK": false,
+					"predictions array present": false
+				}
+			]
+		}
+	],
+	"count": 1,
+	"totalTime": 7310,
+	"collection": {
+		"requests": [
+			{
+				"id": "c22b79d5-3550-4b9e-bbe6-e6dc7dac52cb",
+				"method": "GET"
+			},
+			{
+				"id": "434b7c6c-8ee6-47fe-b048-1ea94936a32b",
+				"method": "POST"
+			},
+			{
+				"id": "2d7b1e28-108d-42f2-89fd-4266fb9062d0",
+				"method": "POST"
+			},
+			{
+				"id": "9e5f1036-1620-4eb3-993f-57a1b2258965",
+				"method": "POST"
+			},
+			{
+				"id": "ced812c6-1a8f-4ca0-bb1c-9df2aa3dfafd",
+				"method": "POST"
+			},
+			{
+				"id": "381574fc-31e2-49b8-ba4b-6fe2b2b457fd",
+				"method": "POST"
+			},
+			{
+				"id": "92c11ab7-4438-4338-ab6e-a1c81a244311",
+				"method": "POST"
+			},
+			{
+				"id": "92f7f08c-36c9-4992-a0d4-4820965fa17a",
+				"method": "POST"
+			},
+			{
+				"id": "fe5ca0de-51f5-4c9a-85b9-457a7ebbd158",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "34d7bbdf-0c26-4bc8-b4e6-b63ead7304cc",
+				"method": "GET"
+			},
+			{
+				"id": "38151468-8cc8-4a3c-9ee7-b76dd483e592",
+				"method": "POST"
+			},
+			{
+				"id": "21a639a6-603e-4c5e-ae50-7cf620260957",
+				"method": "GET"
+			}
+		]
+	}
+}

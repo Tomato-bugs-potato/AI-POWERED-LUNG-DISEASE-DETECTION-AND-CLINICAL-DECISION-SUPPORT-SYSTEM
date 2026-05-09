@@ -43,7 +43,6 @@ function getStepContent(step: number, role: Role | undefined) {
                 {isRadiologist && 'You are signed in as a Radiologist.'}
                 {isDoctor && 'You are signed in as a Doctor.'}
                 {role === Role.Admin && 'You are signed in as an Administrator.'}
-                {role === Role.Lab_Technician && 'You are signed in as a Lab Technician.'}
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                 {isRadiologist &&
@@ -52,8 +51,6 @@ function getStepContent(step: number, role: Role | undefined) {
                   'Your role focuses on diagnosing cases forwarded by radiologists and generating reports.'}
                 {role === Role.Admin &&
                   'You have access to user management, audit logs, and system configuration.'}
-                {role === Role.Lab_Technician &&
-                  'You can view assigned cases and upload supporting lab data.'}
               </p>
             </div>
           )}
@@ -220,11 +217,10 @@ function StepDots({
           role="tab"
           aria-selected={n === current}
           aria-label={`Step ${n} of ${total}`}
-          className={`h-2 rounded-full transition-all duration-200 ${
-            n === current
-              ? 'w-6 bg-blue-600 dark:bg-blue-400'
-              : 'w-2 bg-gray-300 dark:bg-zinc-600'
-          }`}
+          className={`h-2 rounded-full transition-all duration-200 ${n === current
+            ? 'w-6 bg-blue-600 dark:bg-blue-400'
+            : 'w-2 bg-gray-300 dark:bg-zinc-600'
+            }`}
         />
       ))}
     </div>
@@ -287,7 +283,7 @@ export function OnboardingTour() {
       }}
     >
       <DialogContent
-        className="sm:max-w-md bg-white"
+        className="sm:max-w-md"
         aria-label="Onboarding tour"
         showCloseButton={false}
       >

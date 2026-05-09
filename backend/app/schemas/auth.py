@@ -43,3 +43,8 @@ class OTPResendResponse(BaseModel):
     message: str
     otp_code: str
     email: str
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+    reset_token: str  # returned so the client can build the reset link and dispatch via EmailJS
+    email: str

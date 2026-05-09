@@ -126,15 +126,64 @@ export function ReportDetailView({ caseId, initialData }: ReportDetailViewProps)
         <>
             <style>{`
                 @media print {
-                    .no-print { display: none !important; }
-                    body { background: white !important; }
-                    #report-paper {
-                        box-shadow: none !important;
-                        margin: 0 !important;
+                    @page {
+                        size: A4;
+                        margin: 10mm;
                     }
+                    html, body {
+                        background: white !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    /* Isolate the report: hide everything, then re-show only #report-paper.
+                       This removes the dashboard sidebar/header (name + hamburger) and
+                       the desk background's top padding from the printed output. */
+                    body * { visibility: hidden !important; }
+                    #report-paper, #report-paper * { visibility: visible !important; }
+                    #report-paper {
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        margin: 0 !important;
+                        box-shadow: none !important;
+                        background: white !important;
+                        page-break-inside: avoid;
+                    }
+                    /* Comfortable but compact internal spacing so the report fits one
+                       A4 page without feeling cramped. */
+                    #report-paper .px-16 { padding-left: 16mm !important; padding-right: 16mm !important; }
+                    #report-paper .py-12 { padding-top: 4mm !important; padding-bottom: 4mm !important; }
+                    #report-paper .mb-7 { margin-bottom: 4mm !important; }
+                    #report-paper .mb-14 { margin-bottom: 4mm !important; }
+                    #report-paper .mt-7 { margin-top: 4mm !important; }
+                    /* Signatures block: small top air, short signature-line slot. */
+                    #report-paper .grid.grid-cols-2.gap-16 {
+                        padding-top: 5mm !important;
+                        gap: 2rem !important;
+                    }
+                    #report-paper .grid.grid-cols-2.gap-16 div[style*="height: 52px"],
+                    #report-paper .grid.grid-cols-2.gap-16 div[style*="height:52px"] {
+                        height: 20px !important;
+                    }
+                    /* Footer ("This report is confidential...") was 40px top-margin —
+                       way too much for print. */
+                    #report-paper div[style*="marginTop: 40px"],
+                    #report-paper div[style*="margin-top: 40px"] {
+                        margin-top: 4mm !important;
+                        padding-top: 3px !important;
+                    }
+                    /* Final overall fit. Combined with the per-section overrides above
+                       this leaves enough headroom that even the browser's print header
+                       (Chrome adds the page title at the top) can't push us to page 2. */
+                    #report-paper { zoom: 0.92; }
+                    /* Decorative layers that print poorly. */
+                    #report-paper::before { display: none !important; }
+                    .no-print { display: none !important; }
                 }
 
-                /* paper grain texture */
+                /* paper grain texture (screen only) */
                 #report-paper::before {
                     content: '';
                     position: absolute;
@@ -286,9 +335,11 @@ export function ReportDetailView({ caseId, initialData }: ReportDetailViewProps)
                                 </p>
                                 <div style={{ flex: 1, borderTop: '1px solid #d1d5db' }} />
                             </div>
-                            <p style={{ fontSize: '13px', lineHeight: 2, color: '#1f2937', textAlign: 'justify', textIndent: '2em' }}>
-                                {report.radiologist.findings}
-                            </p>
+                            <div
+                                style={{ fontSize: '13px', lineHeight: 2, color: '#1f2937', textAlign: 'justify' }}
+                                dangerouslySetInnerHTML={{ __html: report.radiologist.findings }}
+                            />
+
                             <p style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'sans-serif', marginTop: '8px', fontStyle: 'italic' }}>
                                 Reported by: {report.radiologist.name}, Consultant Radiologist
                             </p>

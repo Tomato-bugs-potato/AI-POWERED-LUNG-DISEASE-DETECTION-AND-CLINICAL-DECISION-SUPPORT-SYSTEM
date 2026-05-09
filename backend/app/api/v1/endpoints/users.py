@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
+from typing import List, Optional
 import uuid
 
 from app.db.session import get_db
@@ -12,6 +12,8 @@ from app.core.rbac import require_admin, require_authenticated
 from app.db.base import AuditAction, UserStatus, Role
 from app.core.audit import log_action
 from app.core.security import hash_password, validate_password
+from app.services.storage import upload_file, get_presigned_url
+from app.config import settings
 
 router = APIRouter()
 
@@ -115,9 +117,75 @@ async def admin_create_user(
 # ---------------------------------------------------------------------------
 # GET /users/me
 # ---------------------------------------------------------------------------
-@router.get("/me", response_model=UserResponse, dependencies=[Depends(require_authenticated)])
+@router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    # If avatar_url is just a path, we could convert it to a full URL here if needed,
+    # but for now we'll assume the frontend handles conversion or it's a full URL.
     return current_user
+
+
+# ---------------------------------------------------------------------------
+# PATCH /users/me  — Update own profile
+# ---------------------------------------------------------------------------
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    user_in: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if user_in.name is not None:
+        current_user.name = user_in.name
+    if user_in.phone_number is not None:
+        current_user.phone_number = user_in.phone_number
+    if user_in.avatar_url is not None:
+        current_user.avatar_url = user_in.avatar_url
+
+    await db.commit()
+    await db.refresh(current_user)
+    
+    await log_action(
+        db, AuditAction.USER_UPDATED,
+        user_id=current_user.user_id,
+        details={"method": "self_update"}
+    )
+    return current_user
+
+
+# ---------------------------------------------------------------------------
+# POST /users/me/avatar  — Upload profile picture
+# ---------------------------------------------------------------------------
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if file.content_type not in ["image/png", "image/jpeg", "image/webp"]:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PNG, JPEG, and WEBP allowed.")
+
+    file_bytes = await file.read()
+    extension = file.filename.split(".")[-1] if "." in file.filename else "png"
+    object_name = f"{current_user.user_id}/avatar.{extension}"
+
+    try:
+        upload_file(settings.MINIO_BUCKET_AVATARS, object_name, file_bytes, file.content_type)
+        
+        # Construct public URL or use a proxy. For simplicity, we'll try to get a presigned URL.
+        # However, for profile pictures usually we want something permanent or a simple proxy.
+        # Let's just store the object path and let the frontend use a proxy endpoint if needed,
+        # OR we can generate a long-lived presigned URL if it's single-tenant dev.
+        # But wait, there is no avatar proxy yet. Let's create one or just use the MinIO direct URL.
+        
+        url = f"http://localhost:9000/{settings.MINIO_BUCKET_AVATARS}/{object_name}"
+        if settings.MINIO_EXTERNAL_HOST:
+             url = f"https://{settings.MINIO_EXTERNAL_HOST}/{settings.MINIO_BUCKET_AVATARS}/{object_name}"
+
+        current_user.avatar_url = url
+        await db.commit()
+        await db.refresh(current_user)
+        return current_user
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload avatar: {str(e)}")
 
 
 # ---------------------------------------------------------------------------

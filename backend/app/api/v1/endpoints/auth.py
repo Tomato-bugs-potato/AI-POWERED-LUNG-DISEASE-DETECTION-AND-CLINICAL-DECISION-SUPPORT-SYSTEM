@@ -10,7 +10,7 @@ from app.models.session import Session as DBSession
 from app.schemas.auth import (
     LoginRequest, TokenResponse, VerifyOTPRequest,
     MessageResponse, ResendOTPRequest, LoginResponse, OTPResendResponse,
-    ForgotPasswordRequest, ResetPasswordRequest,
+    ForgotPasswordRequest, ResetPasswordRequest, ForgotPasswordResponse,
 )
 from app.core.security import (
     verify_password, hash_password, create_access_token, create_refresh_token,
@@ -293,8 +293,11 @@ async def logout(
 
     # 2. Blacklist current access token in Redis (TTL = remaining token lifetime)
     if redis is not None:
-        token_key = f"blacklist:user:{current_user.user_id}"
-        await redis.setex(token_key, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "1")
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            token_key = f"blacklist:token:{hash_token(token)}"
+            await redis.setex(token_key, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "1")
 
     # 3. Clear refresh token cookie
     response.delete_cookie(key="refresh_token", path="/api/v1/auth")
@@ -395,12 +398,13 @@ async def refresh_access_token(
 # ---------------------------------------------------------------------------
 # POST /auth/forgot-password
 # ---------------------------------------------------------------------------
-@router.post("/forgot-password", response_model=MessageResponse)
+@router.post("/forgot-password")
 async def forgot_password(
     payload: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate a password-reset token, store it in Redis, and queue a reset email."""
+    """Generate a password-reset token, store it in Redis, and return it
+    to the client so the frontend can dispatch the reset email via EmailJS."""
     redis = await get_redis()
 
     stmt = select(User).where(User.email == payload.email)
@@ -409,20 +413,19 @@ async def forgot_password(
 
     # Always return 200 to avoid email enumeration
     if not user:
-        return {"message": "If that email exists you will receive a reset link shortly."}
+        return MessageResponse(message="If that email exists you will receive a reset link shortly.")
 
     reset_token = str(uuid.uuid4())
     if redis is not None:
         await redis.setex(f"pwd_reset:{reset_token}", 15 * 60, str(user.user_id))
 
-    # Queue email (non-blocking; if Celery is down, log and move on)
-    try:
-        from app.workers.email_tasks import send_password_reset_email
-        send_password_reset_email.delay(user.email, user.name, reset_token)
-    except Exception:
-        pass
-
-    return {"message": "If that email exists you will receive a reset link shortly."}
+    # Token is returned to the client so the frontend can build the reset link
+    # and dispatch it via EmailJS (same pattern as OTP)
+    return ForgotPasswordResponse(
+        message="Reset token generated.",
+        reset_token=reset_token,
+        email=user.email,
+    )
 
 
 # ---------------------------------------------------------------------------
