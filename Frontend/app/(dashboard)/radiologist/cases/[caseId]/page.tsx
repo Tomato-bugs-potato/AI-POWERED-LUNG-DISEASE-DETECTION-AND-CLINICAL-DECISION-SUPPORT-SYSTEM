@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { ImageViewer } from '@/components/radiologist/ImageViewer';
 import { ConfidenceSlider } from '@/components/radiologist/ConfidenceSlider';
 import { ClassificationBanner } from '@/components/shared/ClassificationBanner';
+import { LungScanAnimation } from '@/components/shared/LungScanAnimation';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { CaseStatusBadge } from '@/components/shared/CaseStatusBadge';
 import { Prediction, Case, DiseaseClass } from '@/types';
@@ -134,10 +135,16 @@ export default function ReviewPredictionsPage() {
     const [confirmRevert, setConfirmRevert] = React.useState(false);
 
     const imageId = caseData?.image?.image_id;
+    // Prefetch the heatmap the moment AI inference is ready, not lazily on
+    // click. Grad-CAM generation is the slow part; by kicking it off in the
+    // background while the radiologist is still reviewing predictions, the
+    // result is usually already cached by the time they hit the Heatmap
+    // toggle — making it feel instant.
     const { data: heatmapBlobUrl, isFetching: isFetchingHeatmap } = useQuery({
         queryKey: ['heatmap', imageId],
-        enabled: !!imageId && showHeatmap,
+        enabled: !!imageId && aiReady,
         staleTime: 15 * 60 * 1000, // matches backend Cache-Control max-age=900
+        gcTime: 30 * 60 * 1000,
         queryFn: async () => {
             const resp = await api.get(`/inference/${imageId}/heatmap`, { responseType: 'blob' });
             return URL.createObjectURL(resp.data);
@@ -345,7 +352,8 @@ export default function ReviewPredictionsPage() {
                                 size="sm"
                                 className={`h-8 ${showHeatmap ? 'text-orange-400' : 'text-zinc-400'}`}
                                 onClick={handleToggleHeatmap}
-                                disabled={isFetchingHeatmap}
+                                disabled={!imageId}
+                                title={isFetchingHeatmap ? 'Heatmap is loading in the background' : 'Toggle Grad-CAM heatmap'}
                             >
                                 {isFetchingHeatmap
                                     ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -381,14 +389,11 @@ export default function ReviewPredictionsPage() {
                             // Hold the X-ray off-screen until AI results land, so the
                             // radiologist isn't tempted to read a bare image before
                             // the model's findings are even in.
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-zinc-300">
-                                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-                                <div className="text-sm font-medium">Running AI analysis…</div>
-                                <div className="text-xs text-zinc-500 max-w-xs text-center">
-                                    Lung segmentation, detection, and classification are running.
-                                    This usually takes a few seconds.
-                                </div>
-                            </div>
+                            <LungScanAnimation
+                                label="Scanning X-ray"
+                                sublabel="Running lung segmentation, lesion detection, and disease classification. This usually takes only a few seconds."
+                                imageUrl={caseData?.image?.file_url}
+                            />
                         )}
                     </div>
                 </div>

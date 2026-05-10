@@ -211,11 +211,12 @@ export default function UploadXrayPage() {
             setUploadProgress(100);
             setPendingCaseId(null);
 
-            toast.success('Upload complete! Case is ready for review.');
+            toast.success('Upload complete — opening the case.');
 
-            setTimeout(() => {
-                router.push(`/radiologist/cases/${caseId}`);
-            }, 500);
+            // Navigate straight into the case so the user sees the lung scan
+            // animation instead of waiting on this page for the inference job
+            // to finish in the background.
+            router.push(`/radiologist/cases/${caseId}`);
 
         } catch (err: any) {
             clearInterval(interval);
@@ -231,7 +232,10 @@ export default function UploadXrayPage() {
 
             setIsUploading(false);
             setPendingCaseId(null);
-            setFileError('File appears corrupted or upload failed. Please try another.');
+
+            const errorMessage = err?.response?.data?.detail?.message || err?.response?.data?.detail || 'File appears corrupted or upload failed.';
+            setFileError(errorMessage);
+            toast.error(errorMessage);
         }
     };
 
@@ -525,7 +529,7 @@ export default function UploadXrayPage() {
                                 {isUploading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Analyzing with AI...
+                                        Uploading…
                                     </>
                                 ) : "Upload & Analyze"}
                             </Button>

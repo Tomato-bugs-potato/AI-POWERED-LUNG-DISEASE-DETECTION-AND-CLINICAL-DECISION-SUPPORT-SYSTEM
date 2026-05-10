@@ -120,15 +120,52 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware — origins read from FRONTEND_URL env var (comma-separated)
+# CORS middleware — origins read from FRONTEND_URL env var (comma-separated).
+# When CORS_ORIGIN_REGEX is set, it takes precedence so dynamic deployment
+# hosts (e.g. raw EC2 IPs) can be matched without redeploying.
 _cors_origins = [o.strip() for o in settings.FRONTEND_URL.split(",") if o.strip()]
+_cors_regex = settings.CORS_ORIGIN_REGEX.strip() or None
+# Fallback regex: when no explicit regex is configured, accept any LAN/IP
+# origin on common dev ports. This keeps tightly-scoped allow_origins for
+# production deployments while preventing dead-end CORS failures on
+# IP-based EC2 deployments where FRONTEND_URL hasn't been updated.
+if not _cors_regex:
+    _cors_regex = r"^https?://(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+def _cors_headers_for(request: Request) -> dict:
+    """Return the CORS headers a normal route response would have got.
+
+    FastAPI's exception handlers run OUTSIDE the middleware chain, so a 500
+    or 422 from a registered handler never gets the Access-Control-* headers
+    CORSMiddleware would have added. Without them the browser blocks the
+    error response — masking the real status code behind a useless CORS
+    error. We replay the same allow_origins / allow_origin_regex check here.
+    """
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    allowed = origin in _cors_origins
+    if not allowed and _cors_regex:
+        import re
+        allowed = bool(re.match(_cors_regex, origin))
+    if not allowed:
+        return {}
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Vary": "Origin",
+    }
 
 if PROMETHEUS_ENABLED:
     # Phase 10.2: Autogenerate /metrics endpoint and standard request metrics
@@ -157,6 +194,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors(), "body": body_str},
+        headers=_cors_headers_for(request),
     )
 
 import traceback
@@ -168,6 +206,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
+        headers=_cors_headers_for(request),
     )
 
 # Include central API router

@@ -3,13 +3,17 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Stethoscope, Save, FileText, CheckCircle2, User as UserIcon, RefreshCw } from 'lucide-react';
+import {
+    ArrowLeft, Stethoscope, Save, FileText, CheckCircle2, User as UserIcon, RefreshCw,
+    Eye, EyeOff, Check, Flame, Loader2, Square,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -26,6 +30,7 @@ import { ImageViewer } from '@/components/radiologist/ImageViewer';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { CaseStatusBadge } from '@/components/shared/CaseStatusBadge';
 import { ClassificationBanner } from '@/components/shared/ClassificationBanner';
+import { LungScanAnimation } from '@/components/shared/LungScanAnimation';
 import api from '@/lib/api';
 
 const CLASS_COLORS: Record<string, string> = {
@@ -125,11 +130,71 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
         initialData: initialData,
         staleTime: 0, // Force background refetch to get the image proxy blob URL
         refetchOnMount: 'always',
+        // Poll until inference results land so the doctor can re-evaluate or
+        // open a case the moment AI finishes — same behaviour as radiologist.
+        refetchInterval: (query) => {
+            const d: any = query.state.data;
+            const aiReady = !!d?.radiologist_review?.edited_predictions?.length
+                || !!d?.ai_classification
+                || !!d?.lung_segmentation;
+            return aiReady ? false : 4000;
+        },
+        refetchIntervalInBackground: false,
     });
+
+    const aiReady = !!caseData?.radiologist_review?.edited_predictions?.length
+        || !!caseData?.ai_classification
+        || !!caseData?.lung_segmentation;
 
     const [finalDiagnosis, setFinalDiagnosis] = React.useState<string>('');
     const [doctorNotes, setDoctorNotes] = React.useState('');
     const [urgency, setUrgency] = React.useState<string>('Non_Critical');
+
+    // Viewer controls — the doctor needs the same overlay / heatmap / threshold
+    // affordances the radiologist had, so they can verify findings independently.
+    const [showAnnotations, setShowAnnotations] = React.useState(true);
+    const [showScores, setShowScores] = React.useState(true);
+    const [showHeatmap, setShowHeatmap] = React.useState(false);
+    const [doctorThreshold, setDoctorThreshold] = React.useState<number | null>(null);
+    const [isGeneratingReport, setIsGeneratingReport] = React.useState(false);
+
+    const imageId = caseData?.image_id;
+    // Prefetch the heatmap as soon as inference results land — Grad-CAM
+    // generation is slow, but the response is deterministic, so kicking it
+    // off in the background while the doctor reads findings makes the
+    // Heatmap toggle feel instant.
+    const { data: heatmapBlobUrl, isFetching: isFetchingHeatmap } = useQuery({
+        queryKey: ['doctor-heatmap', imageId],
+        enabled: !!imageId && aiReady,
+        staleTime: 15 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        queryFn: async () => {
+            const resp = await api.get(`/inference/${imageId}/heatmap`, { responseType: 'blob' });
+            return URL.createObjectURL(resp.data);
+        },
+    });
+
+    React.useEffect(() => {
+        return () => {
+            if (heatmapBlobUrl) {
+                URL.revokeObjectURL(heatmapBlobUrl);
+                queryClient.setQueryData(['doctor-heatmap', imageId], null);
+            }
+        };
+    }, [heatmapBlobUrl, imageId, queryClient]);
+
+    const handleToggleHeatmap = () => {
+        if (!showHeatmap && !imageId) {
+            toast.error('Image not loaded yet');
+            return;
+        }
+        setShowHeatmap(v => !v);
+    };
+
+    // Threshold the doctor sees defaults to the one the radiologist applied,
+    // but the doctor can dial it down on the fly to inspect lower-confidence
+    // detections without changing the saved review.
+    const effectiveThreshold = doctorThreshold ?? caseData?.radiologist_review?.confidence_threshold_applied ?? 50;
 
     // Hydrate the form from any previously saved draft.
     React.useEffect(() => {
@@ -143,9 +208,9 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
     const visibleAnnotations = React.useMemo(() => {
         if (!caseData?.radiologist_review?.edited_predictions) return [];
         return caseData.radiologist_review.edited_predictions.filter(
-            (p: any) => !p.is_false_positive && (p.confidence_score * 100) >= caseData.radiologist_review.confidence_threshold_applied
+            (p: any) => !p.is_false_positive && (p.confidence_score * 100) >= effectiveThreshold
         );
-    }, [caseData]);
+    }, [caseData, effectiveThreshold]);
 
     const handleSaveDraft = async () => {
         toast.info('Saving draft...');
@@ -252,17 +317,25 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                     ) : (
                         <Button
                             variant="outline"
+                            disabled={isGeneratingReport}
                             onClick={async () => {
+                                setIsGeneratingReport(true);
                                 try {
                                     await api.post(`/reports/${caseId}/regenerate`);
                                     toast.success('Report generation started. Navigating to report preview...');
                                     setTimeout(() => router.push(`/doctor/reports/${caseId}`), 2000);
                                 } catch {
                                     toast.error('Failed to generate report');
+                                    setIsGeneratingReport(false);
                                 }
                             }}
                         >
-                            <FileText className="mr-2 h-4 w-4" /> Generate Report
+                            {isGeneratingReport ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="mr-2 h-4 w-4" />
+                            )}
+                            {isGeneratingReport ? 'Generating...' : 'Generate Report'}
                         </Button>
                     )}
                     <AlertDialog>
@@ -346,20 +419,93 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
                 </aside>
 
                 <div className="flex flex-col h-[60vh] lg:h-[calc(100vh-8rem)] lg:sticky lg:top-4 bg-zinc-950 rounded-lg overflow-hidden border border-border">
-                    <div className="h-10 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0">
-                        <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION (READ-ONLY)</span>
-                        <span className="text-zinc-500 text-xs hidden sm:block">By {caseData.radiologist_review.radiologist_name}</span>
+                    <div className="h-12 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 shrink-0 gap-2 flex-wrap">
+                        <div className="flex items-center gap-3">
+                            <span className="text-zinc-400 font-medium tracking-wide text-xs">DIAGNOSTIC VISUALIZATION</span>
+                            <span className="text-zinc-600 text-xs hidden md:inline">·</span>
+                            <span className="text-zinc-500 text-xs hidden md:block">By {caseData.radiologist_review.radiologist_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 ${showAnnotations ? 'text-blue-400' : 'text-zinc-400'}`}
+                                onClick={() => setShowAnnotations(v => !v)}
+                                disabled={showHeatmap}
+                                title={showHeatmap ? 'Boxes are baked into the heatmap view' : 'Toggle bounding boxes'}
+                            >
+                                {showAnnotations ? <Eye className="mr-2 h-4 w-4" /> : <EyeOff className="mr-2 h-4 w-4" />}
+                                Boxes
+                            </Button>
+                            <div className="w-px h-4 bg-zinc-700 mx-1" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 ${showHeatmap ? 'text-orange-400' : 'text-zinc-400'}`}
+                                onClick={handleToggleHeatmap}
+                                disabled={!imageId}
+                                title={isFetchingHeatmap ? 'Heatmap is loading in the background' : 'Toggle Grad-CAM heatmap'}
+                            >
+                                {isFetchingHeatmap
+                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    : <Flame className="mr-2 h-4 w-4" />}
+                                Heatmap
+                            </Button>
+                            <div className="w-px h-4 bg-zinc-700 mx-1" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 ${showScores ? 'text-blue-400' : 'text-zinc-400'}`}
+                                onClick={() => setShowScores(v => !v)}
+                                disabled={showHeatmap}
+                            >
+                                <Check className="mr-2 h-4 w-4" />
+                                Scores
+                            </Button>
+                        </div>
                     </div>
                     <ClassificationBanner classification={caseData.ai_classification} />
+
+                    {/* Confidence threshold slider — lets the doctor look beyond
+                        what the radiologist filtered, without altering the saved
+                        review. */}
+                    {aiReady && !showHeatmap && (
+                        <div className="bg-zinc-900/60 border-b border-zinc-800 px-4 py-2 flex items-center gap-3 shrink-0">
+                            <Square className="h-3.5 w-3.5 text-zinc-500" />
+                            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
+                                Confidence ≥ {Math.round(effectiveThreshold)}%
+                            </span>
+                            <Slider
+                                value={[effectiveThreshold]}
+                                onValueChange={(v) => setDoctorThreshold(v[0])}
+                                min={0}
+                                max={100}
+                                step={5}
+                                className="flex-1"
+                            />
+                            <span className="text-xs text-zinc-500 whitespace-nowrap">
+                                {visibleAnnotations.length} shown
+                            </span>
+                        </div>
+                    )}
+
                     <div className="flex-1 w-full bg-black relative">
-                        <ImageViewer
-                            imageUrl={caseData.image.file_url}
-                            annotations={visibleAnnotations}
-                            lungSegmentation={caseData.lung_segmentation}
-                            mode="view"
-                            showAnnotations={true}
-                            showScores={true}
-                        />
+                        {aiReady ? (
+                            <ImageViewer
+                                imageUrl={showHeatmap && heatmapBlobUrl ? heatmapBlobUrl : caseData.image.file_url}
+                                annotations={visibleAnnotations}
+                                lungSegmentation={caseData.lung_segmentation}
+                                mode="view"
+                                showAnnotations={showAnnotations && !showHeatmap}
+                                showScores={showScores && !showHeatmap}
+                            />
+                        ) : (
+                            <LungScanAnimation
+                                label="Scanning X-ray"
+                                sublabel="Detection + classification are still running. The image will appear with bounding boxes as soon as results arrive."
+                                imageUrl={caseData?.image?.file_url}
+                            />
+                        )}
                     </div>
                 </div>
 

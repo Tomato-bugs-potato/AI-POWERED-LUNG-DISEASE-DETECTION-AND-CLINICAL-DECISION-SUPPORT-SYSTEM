@@ -96,8 +96,14 @@ async def get_review(
     case_id: uuid.UUID,
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(RadiologistReview).where(RadiologistReview.case_id == case_id)
-    result = await db.execute(stmt)
-    review = result.scalar_one_or_none()
-    
-    return review
+    try:
+        stmt = select(RadiologistReview).where(RadiologistReview.case_id == case_id)
+        result = await db.execute(stmt)
+        review = result.scalar_one_or_none()
+        return review
+    except Exception as e:
+        import traceback
+        import sys
+        print(f"[REVIEWS] Error in get_review: {e}", file=sys.stderr)
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal server error retrieving review")

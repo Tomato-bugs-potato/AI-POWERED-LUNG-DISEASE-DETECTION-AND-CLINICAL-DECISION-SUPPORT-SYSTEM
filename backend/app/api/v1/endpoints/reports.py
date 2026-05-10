@@ -160,9 +160,10 @@ async def get_report(
             .selectinload(Image.inference_results),
         )
         .where(Report.case_id == case_id)
+        .order_by(Report.generated_at.desc())
     )
     result = await db.execute(stmt)
-    report = result.scalar_one_or_none()
+    report = result.scalars().first()
 
     if not report:
         raise HTTPException(status_code=404, detail="Report not generated yet for this case.")
@@ -196,9 +197,9 @@ async def get_report_status(
     case_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Report).where(Report.case_id == case_id)
+    stmt = select(Report).where(Report.case_id == case_id).order_by(Report.generated_at.desc())
     result = await db.execute(stmt)
-    report = result.scalar_one_or_none()
+    report = result.scalars().first()
 
     if report:
         return {"status": "ready", "report_id": report.report_id}
@@ -236,9 +237,16 @@ async def regenerate_report(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(Report).where(Report.case_id == case_id)
+    stmt = select(Report).where(Report.case_id == case_id).order_by(Report.generated_at.desc())
     result = await db.execute(stmt)
-    report = result.scalar_one_or_none()
+    reports = result.scalars().all()
+    report = reports[0] if reports else None
+
+    # Clean up duplicate reports — keep only the latest
+    if len(reports) > 1:
+        for old_report in reports[1:]:
+            await db.delete(old_report)
+        await db.commit()
 
     if report:
         await db.delete(report)

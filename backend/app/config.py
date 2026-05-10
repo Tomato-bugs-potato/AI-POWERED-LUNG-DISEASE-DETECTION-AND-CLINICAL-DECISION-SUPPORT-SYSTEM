@@ -59,6 +59,10 @@ class Settings(BaseSettings):
 
     # Frontend URL for CORS (comma-separated list allowed)
     FRONTEND_URL: str = "http://localhost:3000"
+    # Optional regex for CORS origins — set on deployments where the
+    # frontend host isn't known ahead of time (e.g. dynamic EC2 IPs).
+    # Example: ^https?://(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)(:\d+)?$
+    CORS_ORIGIN_REGEX: str = ""
 
     # Set to true to seed test users on startup (dev only)
     SEED_TEST_USERS: bool = False

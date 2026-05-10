@@ -82,12 +82,12 @@ async def _run_report(case_id: str, doctor_id: str) -> dict:
             diagnosis = case.diagnosis
             diagnosis_data = {
                 "doctor_name": doctor.name if doctor else "Attending Physician",
-                "primary": diagnosis.primary_diagnosis.value if diagnosis else "Pending",
+                "primary": diagnosis.primary_diagnosis.value if (diagnosis and diagnosis.primary_diagnosis) else "Pending",
                 "notes": diagnosis.diagnosis_notes if diagnosis else "",
-                "urgency": diagnosis.urgency_level.value if diagnosis else "Non_Critical",
+                "urgency": diagnosis.urgency_level.value if (diagnosis and diagnosis.urgency_level) else "Non_Critical",
                 "treatment": diagnosis.treatment_recommendations if diagnosis else "",
             }
-            hospital_data = {"name": "Clinical Decision Support System"}
+            hospital_data = {"name": "Clinical Diagnostic Report"}
 
             file_url_for_image = first_image.file_url if first_image else None
 

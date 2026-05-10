@@ -161,9 +161,15 @@ def generate_pdf_report(
                 </tr>
                 {% for pred in ai.predictions[:6] %}
                 <tr>
-                    <td>{{ pred.disease_class }}</td>
-                    <td>{{ "%.1f"|format(pred.confidence_score * 100) }}%</td>
-                    <td>({{ "%.0f"|format(pred.bounding_box.x) }}, {{ "%.0f"|format(pred.bounding_box.y) }}, {{ "%.0f"|format(pred.bounding_box.w) }}, {{ "%.0f"|format(pred.bounding_box.h) }})</td>
+                    <td>{{ pred.disease_class if pred.disease_class else 'Unknown' }}</td>
+                    <td>{{ "%.1f"|format((pred.confidence_score or 0) * 100) }}%</td>
+                    <td>
+                        {% if pred.bounding_box %}
+                        ({{ "%.0f"|format(pred.bounding_box.x or 0) }}, {{ "%.0f"|format(pred.bounding_box.y or 0) }}, {{ "%.0f"|format(pred.bounding_box.w or 0) }}, {{ "%.0f"|format(pred.bounding_box.h or 0) }})
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr><td colspan="3">No findings reported by AI.</td></tr>

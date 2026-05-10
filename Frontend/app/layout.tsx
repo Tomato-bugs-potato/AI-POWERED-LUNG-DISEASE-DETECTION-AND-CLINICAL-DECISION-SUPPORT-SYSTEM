@@ -4,7 +4,7 @@ import { Nunito, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
-const nunito = Nunito({ 
+const nunito = Nunito({
   subsets: ["latin"],
   variable: "--font-nunito",
 })
@@ -41,7 +41,7 @@ export default function RootLayout({
       <body className={`${nunito.variable} font-sans antialiased text-foreground`}>
         <QueryProvider>
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster position="top-center" richColors />
         </QueryProvider>
         <Analytics />
       </body>

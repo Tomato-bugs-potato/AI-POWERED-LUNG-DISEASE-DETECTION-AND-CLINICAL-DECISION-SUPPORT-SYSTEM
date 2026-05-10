@@ -11,12 +11,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import api from '@/lib/api';
+import { strongPasswordSchema } from '@/lib/password';
+import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 
 const schema = z.object({
-    new_password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirm_password: z.string().min(1, 'Please confirm your password'),
+    new_password: strongPasswordSchema,
+    confirm_password: z.string().min(1, 'Please re-enter your password to confirm'),
 }).refine((data) => data.new_password === data.confirm_password, {
-    message: 'Passwords do not match',
+    message: 'Passwords do not match — please make sure both fields are identical',
     path: ['confirm_password'],
 });
 
@@ -54,10 +56,14 @@ function ResetPasswordForm() {
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors, isSubmitting },
     } = useForm<FormValues>({
         resolver: zodResolver(schema),
+        mode: 'onChange',
     });
+
+    const newPasswordValue = watch('new_password') || '';
 
     const onSubmit = async (data: FormValues) => {
         setError('');
@@ -151,7 +157,7 @@ function ResetPasswordForm() {
                                 <div className="mb-4">
                                     <h3 className="text-xl font-extrabold text-[#1C2222]">Reset Password</h3>
                                     <p className="text-sm text-[#1C2222]/40 mt-1 font-medium">
-                                        Choose a strong password with at least 8 characters.
+                                        Choose a strong password — at least 8 characters with upper, lower, number, and a special character.
                                     </p>
                                 </div>
 
@@ -179,6 +185,7 @@ function ResetPasswordForm() {
                                     {errors.new_password && (
                                         <p className="text-sm text-red-500">{errors.new_password.message}</p>
                                     )}
+                                    <PasswordStrengthMeter value={newPasswordValue} className="mt-1" />
                                 </div>
 
                                 <div className="space-y-2">

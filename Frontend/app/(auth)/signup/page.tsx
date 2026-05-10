@@ -26,13 +26,15 @@ import {
 import { Loader2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import api from '@/lib/api';
 import { sendOtpEmail } from '@/lib/email';
+import { strongPasswordSchema } from '@/lib/password';
+import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 
 const signupSchema = z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    name: z.string().min(2, 'Name must be at least 2 characters long'),
+    email: z.string().min(1, 'Email is required').email('Please enter a valid email address (e.g. you@hospital.com)'),
+    password: strongPasswordSchema,
     role: z.enum(['Doctor', 'Radiologist', 'Admin'], {
-        required_error: 'Please select a role',
+        required_error: 'Please select your clinical role',
     }),
 });
 
@@ -210,12 +212,14 @@ export default function SignupPage() {
                                                     <FormControl>
                                                         <Input
                                                             disabled={isLoading}
-                                                            placeholder="••••••••"
+                                                            placeholder="Create a strong password"
                                                             type="password"
+                                                            autoComplete="new-password"
                                                             className="rounded-xl border-[#1C2222]/10 bg-white/60 focus:bg-white"
                                                             {...field}
                                                         />
                                                     </FormControl>
+                                                    <PasswordStrengthMeter value={field.value || ''} className="mt-2" />
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
