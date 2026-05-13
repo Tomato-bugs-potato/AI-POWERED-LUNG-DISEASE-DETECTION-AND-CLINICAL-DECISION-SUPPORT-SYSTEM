@@ -60,8 +60,11 @@ async def register_patient(
         details={"patient_id": str(db_patient.patient_id), "consent_recorded": True},
     )
 
-    await db.refresh(db_patient)
-    return db_patient
+    # Use select with selectinload instead of db.refresh to ensure 'cases' is loaded for Pydantic serialization
+    await db.flush() # Ensure ID is generated if not provided
+    stmt = select(Patient).options(selectinload(Patient.cases)).where(Patient.patient_id == db_patient.patient_id)
+    res = await db.execute(stmt)
+    return res.scalar_one()
 
 
 @router.get("/search", response_model=List[PatientResponse], dependencies=[Depends(require_clinical_staff)])

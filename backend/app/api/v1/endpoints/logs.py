@@ -46,11 +46,6 @@ async def get_audit_logs(
     result = await db.execute(stmt)
     logs = result.scalars().all()
     
-    # We don't want to log whenever admin reads logs to prevent massive spam, 
-    # but the requirement dictates it according to section 4.10. 
-    # To prevent spam, let's log once per endpoint call, not once per row.
-    await log_action(db, AuditAction.ADMIN_LOG_VIEWED, user_id=current_user.user_id)
-    
     # Because of our EncryptedText decorator, the JSON strings in 'details'
     # are automatically decrypted into plaintext JSON strings. We parse those before sending:
     import json
@@ -61,4 +56,14 @@ async def get_audit_logs(
             except json.JSONDecodeError:
                 pass 
                 
-    return logs
+    # Validate into Pydantic models before committing the session, 
+    # as commit expires the SQLAlchemy objects and causes MissingGreenlet 
+    # errors during the automatic serialization at return time.
+    response_logs = [AuditLogResponse.model_validate(log) for log in logs]
+
+    # We don't want to log whenever admin reads logs to prevent massive spam, 
+    # but the requirement dictates it according to section 4.10. 
+    # To prevent spam, let's log once per endpoint call, not once per row.
+    await log_action(db, AuditAction.ADMIN_LOG_VIEWED, user_id=current_user.user_id)
+    
+    return response_logs

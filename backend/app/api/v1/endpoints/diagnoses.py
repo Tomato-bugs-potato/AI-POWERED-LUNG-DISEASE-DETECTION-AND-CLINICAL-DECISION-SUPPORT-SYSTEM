@@ -84,6 +84,7 @@ async def submit_diagnosis(
         details={"primary_diagnosis": diag_in.primary_diagnosis.value, "urgency": diag_in.urgency_level.value},
     )
 
+    await db.refresh(diagnosis)
     return diagnosis
 
 
@@ -131,6 +132,7 @@ async def save_diagnosis_draft(
     await db.refresh(diagnosis)
 
     await log_action(db, AuditAction.DIAGNOSIS_DRAFT_SAVED, user_id=current_user.user_id, case_id=case_id)
+    await db.refresh(diagnosis)
     return diagnosis
 
 

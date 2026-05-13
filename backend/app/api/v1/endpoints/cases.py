@@ -104,6 +104,35 @@ async def get_case(
         
     return case
 
+@router.get("/{case_id}/status")
+async def get_case_status(
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_clinical_staff)
+):
+    """Lightweight endpoint for polling inference status."""
+    from app.models.image import Image
+    stmt = select(Case).options(
+        selectinload(Case.images).selectinload(Image.inference_results)
+    ).where(Case.case_id == case_id)
+    
+    result = await db.execute(stmt)
+    case = result.scalar_one_or_none()
+    
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    first_image = case.images[0] if case.images else None
+    inference_ready = bool(first_image.inference_results) if first_image else False
+    
+    return {
+        "case_id": case.case_id,
+        "patient_id": case.patient_id,
+        "status": case.status,
+        "priority": case.priority,
+        "inference_ready": inference_ready
+    }
+
 @router.patch("/{case_id}/status", response_model=CaseResponse)
 async def update_case_status(
     case_id: uuid.UUID,

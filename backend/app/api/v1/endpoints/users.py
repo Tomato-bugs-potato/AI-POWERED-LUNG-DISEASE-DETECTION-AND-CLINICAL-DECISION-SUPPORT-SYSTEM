@@ -12,7 +12,7 @@ from app.core.rbac import require_admin, require_authenticated
 from app.db.base import AuditAction, UserStatus, Role
 from app.core.audit import log_action
 from app.core.security import hash_password, validate_password
-from app.services.storage import upload_file, get_presigned_url
+from app.services.storage import upload_file, get_presigned_url, get_file_data
 from app.config import settings
 
 router = APIRouter()
@@ -141,13 +141,14 @@ async def update_me(
         current_user.avatar_url = user_in.avatar_url
 
     await db.commit()
-    await db.refresh(current_user)
     
     await log_action(
         db, AuditAction.USER_UPDATED,
         user_id=current_user.user_id,
         details={"method": "self_update"}
     )
+    
+    await db.refresh(current_user)
     return current_user
 
 
@@ -170,22 +171,39 @@ async def upload_avatar(
     try:
         upload_file(settings.MINIO_BUCKET_AVATARS, object_name, file_bytes, file.content_type)
         
-        # Construct public URL or use a proxy. For simplicity, we'll try to get a presigned URL.
-        # However, for profile pictures usually we want something permanent or a simple proxy.
-        # Let's just store the object path and let the frontend use a proxy endpoint if needed,
-        # OR we can generate a long-lived presigned URL if it's single-tenant dev.
-        # But wait, there is no avatar proxy yet. Let's create one or just use the MinIO direct URL.
-        
-        url = f"http://localhost:9000/{settings.MINIO_BUCKET_AVATARS}/{object_name}"
-        if settings.MINIO_EXTERNAL_HOST:
-             url = f"https://{settings.MINIO_EXTERNAL_HOST}/{settings.MINIO_BUCKET_AVATARS}/{object_name}"
-
-        current_user.avatar_url = url
+        # Store only the object path — the frontend will use the proxy endpoint
+        # GET /users/me/avatar to fetch the image, avoiding MinIO host issues.
+        current_user.avatar_url = object_name
         await db.commit()
+        
+        await log_action(
+            db, AuditAction.USER_UPDATED,
+            user_id=current_user.user_id,
+            details={"method": "avatar_upload"}
+        )
+        
         await db.refresh(current_user)
         return current_user
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload avatar: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# GET /users/me/avatar  — Proxy to serve avatar image from MinIO
+# ---------------------------------------------------------------------------
+@router.get("/me/avatar")
+async def get_avatar(
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.avatar_url:
+        raise HTTPException(status_code=404, detail="No avatar uploaded")
+
+    try:
+        from fastapi.responses import Response
+        data, content_type = get_file_data(settings.MINIO_BUCKET_AVATARS, current_user.avatar_url)
+        return Response(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600"})
+    except Exception:
+        raise HTTPException(status_code=404, detail="Avatar not found")
 
 
 # ---------------------------------------------------------------------------

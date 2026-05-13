@@ -89,6 +89,7 @@ async def submit_review_to_doctor(
     await db.commit()
     
     await log_action(db, AuditAction.REVIEW_SENT_TO_DOCTOR, user_id=current_user.user_id, case_id=case_id)
+    await db.refresh(review)
     return review
 
 @router.get("/{case_id}", response_model=Optional[ReviewResponse], dependencies=[Depends(require_rad_or_doc)])

@@ -25,14 +25,38 @@ _minio_external_client = Minio(
 
 def ensure_buckets_exist():
     """Create buckets if they do not exist"""
-    buckets = [settings.MINIO_BUCKET_IMAGES, settings.MINIO_BUCKET_REPORTS, settings.BACKUP_BUCKET]
+    buckets = [settings.MINIO_BUCKET_IMAGES, settings.MINIO_BUCKET_REPORTS, settings.MINIO_BUCKET_AVATARS, settings.BACKUP_BUCKET]
     for bucket in buckets:
         try:
             if not minio_client.bucket_exists(bucket):
                 minio_client.make_bucket(bucket)
-                # optionally enable versioning here
+            
+            # GAP-10: Avatars must be publicly readable for profiles to work without presigning every time
+            if bucket == settings.MINIO_BUCKET_AVATARS:
+                _set_avatar_public_policy(bucket)
         except S3Error as e:
             print(f"MinIO bucket error: {e}")
+
+def _set_avatar_public_policy(bucket: str):
+    policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": ["*"]},
+                "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+                "Resource": [f"arn:aws:s3:::{bucket}"],
+            },
+            {
+                "Effect": "Allow",
+                "Principal": {"AWS": ["*"]},
+                "Action": ["s3:GetObject"],
+                "Resource": [f"arn:aws:s3:::{bucket}/*"],
+            },
+        ],
+    }
+    import json
+    minio_client.set_bucket_policy(bucket, json.dumps(policy))
 
 def upload_file(bucket_name: str, object_name: str, data: bytes, content_type: str) -> str:
     """Upload data stream to MinIO. In real prod we use Server side encryption."""

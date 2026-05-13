@@ -3,9 +3,12 @@ from typing import Optional
 from datetime import date, datetime
 import uuid
 from app.db.base import CaseStatus, UrgencyLevel
-from app.schemas.patient import PatientResponse
+from typing import Optional, TYPE_CHECKING
 from app.schemas.user import UserResponse
 from app.schemas.image import ImageResponse
+
+if TYPE_CHECKING:
+    from app.schemas.patient import PatientResponse
 
 class CaseCreate(BaseModel):
     patient_id: uuid.UUID
@@ -30,9 +33,13 @@ class CaseResponse(BaseModel):
         from_attributes = True
 
 class CaseDetailResponse(CaseResponse):
-    patient: Optional[PatientResponse] = None
+    patient: Optional["PatientSummaryResponse"] = None
     upload_tech: Optional[UserResponse] = None
     images: list[ImageResponse] = []
     
     class Config:
         from_attributes = True
+
+# Resolve forward references
+from app.schemas.patient import PatientResponse, PatientSummaryResponse
+CaseDetailResponse.model_rebuild()

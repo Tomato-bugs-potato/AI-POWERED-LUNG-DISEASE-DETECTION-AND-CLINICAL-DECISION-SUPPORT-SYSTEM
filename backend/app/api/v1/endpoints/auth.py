@@ -145,7 +145,13 @@ async def login(
             "role": user.role.value,
             "hospital_id": str(user.hospital_id) if user.hospital_id else None,
         }
-        return {"access_token": access_token, "token_type": "bearer", "user": user_dict, "skip_otp": True}
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": user_dict,
+            "skip_otp": True
+        }
     # ── END DEV SHORTCUT ──
 
     # Generate OTP, store hashed in Redis with 5-min TTL (FR-02)
@@ -272,7 +278,12 @@ async def verify_otp(
         "hospital_id": str(user.hospital_id) if user.hospital_id else None,
     }
 
-    return {"access_token": access_token, "token_type": "bearer", "user": user_dict}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": user_dict
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +403,12 @@ async def refresh_access_token(
         "role": user.role.value,
         "hospital_id": str(user.hospital_id) if user.hospital_id else None,
     }
-    return {"access_token": access_token, "token_type": "bearer", "user": user_dict}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": user_dict
+    }
 
 
 # ---------------------------------------------------------------------------
