@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Hospital, Shield, Camera, Edit2, Check, X, Phone } from 'lucide-react';
+import { User as UserIcon, Mail, Hospital, Shield, Camera, Edit2, Check, X, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ export function ProfileView() {
     const [name, setName] = React.useState(user?.name || '');
     const [phone, setPhone] = React.useState(user?.phone_number || '');
     const [isUploading, setIsUploading] = React.useState(false);
+    const [avatarSrc, setAvatarSrc] = React.useState('');
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -25,6 +26,20 @@ export function ProfileView() {
             setPhone(user.phone_number || '');
         }
     }, [user]);
+
+    // Fetch avatar via authenticated API client (plain <img> can't send JWT)
+    React.useEffect(() => {
+        if (!user?.avatar_url) { setAvatarSrc(''); return; }
+        let revoked = false;
+        api.get('/users/me/avatar', { responseType: 'blob' })
+            .then((res) => {
+                if (revoked) return;
+                const url = URL.createObjectURL(res.data);
+                setAvatarSrc(url);
+            })
+            .catch(() => setAvatarSrc(''));
+        return () => { revoked = true; };
+    }, [user?.avatar_url]);
 
     const handleSave = async () => {
         try {
@@ -96,7 +111,7 @@ export function ProfileView() {
                         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 min-w-0">
                             <div className="relative group shrink-0">
                                 <Avatar className="size-24 sm:size-32 border-4 border-white shadow-xl">
-                                    <AvatarImage src={user?.avatar_url || ''} />
+                                    <AvatarImage src={avatarSrc} />
                                     <AvatarFallback className="bg-[#4BA0A2] text-white text-3xl sm:text-4xl font-black">
                                         {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
                                     </AvatarFallback>
@@ -135,7 +150,7 @@ export function ProfileView() {
                                     <div>
                                         <h2 className="text-3xl font-black text-[#1C2222] dark:text-white tracking-tight">{user?.name || 'Unknown User'}</h2>
                                         <Badge variant="outline" className="mt-3 bg-[#4BA0A2]/10 text-[#4BA0A2] border-[#4BA0A2]/20 font-bold px-3 py-1 rounded-full uppercase text-[10px] tracking-wider">
-                                            {user?.role?.replace('_', ' ') || 'Staff'}
+                                            {user?.role?.toString().replace('_', ' ') || 'Staff'}
                                         </Badge>
                                     </div>
                                 )}
@@ -183,7 +198,7 @@ export function ProfileView() {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Verified Role</p>
-                                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user?.role?.replace('_', ' ') || 'N/A'}</p>
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{user?.role?.toString().replace('_', ' ') || 'N/A'}</p>
                                     </div>
                                 </div>
 
@@ -202,7 +217,7 @@ export function ProfileView() {
                         <div className="mt-12 pt-8 border-t border-gray-100">
                             <div className="flex items-center gap-4 group">
                                 <div className="h-10 w-10 rounded-2xl bg-gray-50 flex items-center justify-center">
-                                    <User className="h-5 w-5 text-gray-400" />
+                                    <UserIcon className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System User ID</p>

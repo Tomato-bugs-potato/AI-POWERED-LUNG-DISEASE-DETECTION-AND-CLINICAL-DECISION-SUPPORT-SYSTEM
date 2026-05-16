@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle, RotateCcw, Flame, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -51,76 +51,101 @@ const fetchSavedReview = async (id: string): Promise<any | null> => {
     }
 };
 
-const fetchCaseDetails = async (id: string): Promise<any> => {
-    const [c, savedReview] = await Promise.all([
-        fetchCaseMeta(id),
-        fetchSavedReview(id),
-    ]);
-    if (!c) return null;
 
-    const firstImage = c.images?.[0];
-    let fileUrl = '';
-    if (firstImage?.image_id) {
-        try {
-            fileUrl = await fetchImageBlobUrl(firstImage.image_id);
-        } catch (err: any) {
-            console.error(
-                `[ReviewPredictionsPage] /images/${firstImage.image_id}/proxy failed:`,
-                err?.response?.status,
-                err?.response?.data || err?.message,
-            );
-        }
-    }
-
-    // Prefer the radiologist's saved edits over the raw AI predictions.
-    const aiPredictions = firstImage?.inference_results?.[0]?.predictions || [];
-    const editedPredictions = savedReview?.annotations?.edited_predictions || null;
-    const sourcePredictions = editedPredictions || aiPredictions;
-    const predictions = sourcePredictions.map((p: any, i: number) => ({
-        ...p,
-        id: p.id || `pred-${i}`,
-    }));
-
-    const aiClassification = firstImage?.inference_results?.[0]?.classification || null;
-    const lungSegmentation = firstImage?.inference_results?.[0]?.lung_segmentation || null;
-
-    return {
-        case_id: c.case_id,
-        patient_id: c.patient?.patient_id || c.patient_id,
-        status: c.status,
-        priority: c.priority,
-        image: { image_id: firstImage?.image_id, file_url: fileUrl },
-        inference_result: {
-            predictions,
-            classification: aiClassification,
-            lung_segmentation: lungSegmentation,
-            // True once the background inference task has saved a result
-            ready: !!firstImage?.inference_results?.[0],
-        },
-        saved_review: savedReview
-            ? {
-                notes: savedReview.notes || '',
-                confidence_threshold_applied: savedReview.confidence_threshold_applied ?? null,
-            }
-            : null,
-    };
-};
 
 export default function ReviewPredictionsPage() {
     const params = useParams();
     const router = useRouter();
     const caseId = params.caseId as string;
 
-    const { data: caseData, isLoading } = useQuery({
-        queryKey: ['case', caseId],
-        queryFn: () => fetchCaseDetails(caseId),
-        // AI inference runs in the background after upload. Poll the case until
-        // results land so the page picks them up without a manual refresh.
-        refetchInterval: (query) => (query.state.data?.inference_result?.ready ? false : 4000),
-        refetchIntervalInBackground: false,
+    const { data: caseMeta, isLoading: isLoadingMeta } = useQuery({
+        queryKey: ['case-meta', caseId],
+        queryFn: () => fetchCaseMeta(caseId),
+        staleTime: Infinity,
     });
 
-    const aiReady = !!caseData?.inference_result?.ready;
+    const firstImageRaw = caseMeta?.images?.[0];
+    const imageId = firstImageRaw?.image_id;
+
+    // 2. Poll for inference status (lightweight)
+    const { data: caseStatus } = useQuery({
+        queryKey: ['case-status', caseId],
+        queryFn: async () => {
+            const resp = await api.get(`/cases/${caseId}/status`);
+            return resp.data;
+        },
+        // Only poll if inference wasn't ready on the first meta fetch
+        enabled: !!caseId && !firstImageRaw?.inference_results?.[0],
+        refetchInterval: (query) => {
+            return query.state.data?.inference_ready ? false : 1500;
+        },
+    });
+
+    const aiReady = !!firstImageRaw?.inference_results?.[0];
+
+    // 3. Fetch image blob (ONLY ONCE)
+    const { data: fileUrl, isLoading: isLoadingImage } = useQuery({
+        queryKey: ['case-image', imageId],
+        queryFn: () => fetchImageBlobUrl(imageId!),
+        enabled: !!imageId,
+        staleTime: Infinity,
+        gcTime: Infinity,
+    });
+
+    // 4. Fetch saved review (ONLY ONCE)
+    const { data: savedReview, isLoading: isLoadingReview } = useQuery({
+        queryKey: ['case-review', caseId],
+        queryFn: () => fetchSavedReview(caseId),
+        staleTime: Infinity,
+    });
+
+    // Derived inference results.
+    // If polling finishes, we need the main meta query to re-fetch to get the
+    // heavy inference results (predictions, segmentation).
+    const queryClient = useQueryClient();
+    React.useEffect(() => {
+        if (caseStatus?.inference_ready) {
+            queryClient.invalidateQueries({ queryKey: ['case-meta', caseId] });
+        }
+    }, [caseStatus?.inference_ready, queryClient, caseId]);
+
+    const inferenceResult = React.useMemo(() => {
+        if (!caseMeta) return null;
+
+        const aiResults = firstImageRaw?.inference_results?.[0];
+        const aiPredictions = aiResults?.predictions || [];
+        const editedPredictions = savedReview?.annotations?.edited_predictions || null;
+        const sourcePredictions = editedPredictions || aiPredictions;
+        const predictions = sourcePredictions.map((p: any, i: number) => ({
+            ...p,
+            id: p.id || `pred-${i}`,
+        }));
+
+        return {
+            predictions,
+            classification: aiResults?.classification || null,
+            lung_segmentation: aiResults?.lung_segmentation || null,
+            ready: aiReady,
+        };
+    }, [caseMeta, savedReview, aiReady, firstImageRaw]);
+
+    const caseData = React.useMemo(() => {
+        if (!caseMeta) return null;
+        return {
+            case_id: caseMeta.case_id,
+            patient_id: caseMeta.patient?.patient_id || caseMeta.patient_id,
+            status: caseMeta.status,
+            priority: caseMeta.priority,
+            image: { image_id: imageId, file_url: fileUrl },
+            inference_result: inferenceResult,
+            saved_review: savedReview
+                ? {
+                    notes: savedReview.notes || '',
+                    confidence_threshold_applied: savedReview.confidence_threshold_applied ?? null,
+                }
+                : null,
+        };
+    }, [caseMeta, fileUrl, inferenceResult, savedReview, imageId]);
 
     // State
     const [annotations, setAnnotations] = React.useState<Prediction[]>([]);
@@ -134,7 +159,8 @@ export default function ReviewPredictionsPage() {
     const [confirmRemoveAll, setConfirmRemoveAll] = React.useState(false);
     const [confirmRevert, setConfirmRevert] = React.useState(false);
 
-    const imageId = caseData?.image?.image_id;
+    const isLoading = (isLoadingMeta && !caseMeta) || (isLoadingImage && !fileUrl);
+
     // Prefetch the heatmap the moment AI inference is ready, not lazily on
     // click. Grad-CAM generation is the slow part; by kicking it off in the
     // background while the radiologist is still reviewing predictions, the
@@ -154,8 +180,9 @@ export default function ReviewPredictionsPage() {
     React.useEffect(() => {
         return () => {
             if (heatmapBlobUrl) URL.revokeObjectURL(heatmapBlobUrl);
+            if (fileUrl) URL.revokeObjectURL(fileUrl);
         };
-    }, [heatmapBlobUrl]);
+    }, [heatmapBlobUrl, fileUrl]);
 
     const handleToggleHeatmap = () => {
         if (!showHeatmap && !imageId) {
@@ -165,7 +192,9 @@ export default function ReviewPredictionsPage() {
         setShowHeatmap(v => !v);
     };
 
-    // Hydrate from server: prefer saved review edits, then AI predictions.
+    // Hydrate local state from server data. 
+    // This runs when caseData is first loaded, and again when polling finishes 
+    // and caseData is updated with the real AI results.
     React.useEffect(() => {
         if (caseData?.inference_result?.predictions) {
             setAnnotations(JSON.parse(JSON.stringify(caseData.inference_result.predictions)));
@@ -375,25 +404,38 @@ export default function ReviewPredictionsPage() {
 
                     <ClassificationBanner classification={caseData.inference_result?.classification} />
                     <div className="flex-1 w-full bg-black relative">
-                        {aiReady ? (
+                        {fileUrl ? (
                             <ImageViewer
-                                imageUrl={showHeatmap && heatmapBlobUrl ? heatmapBlobUrl : caseData.image.file_url}
+                                imageUrl={showHeatmap && heatmapBlobUrl ? heatmapBlobUrl : fileUrl}
                                 annotations={displayAnnotations}
-                                lungSegmentation={caseData.inference_result.lung_segmentation}
+                                lungSegmentation={caseData?.inference_result?.lung_segmentation}
                                 mode={showHeatmap ? 'view' : 'edit'}
                                 onAnnotationsChange={handleUpdateAnnotation}
                                 showAnnotations={showAnnotations && !showHeatmap}
                                 showScores={showScores && !showHeatmap}
                             />
                         ) : (
-                            // Hold the X-ray off-screen until AI results land, so the
-                            // radiologist isn't tempted to read a bare image before
-                            // the model's findings are even in.
-                            <LungScanAnimation
-                                label="Scanning X-ray"
-                                sublabel="Running lung segmentation, lesion detection, and disease classification. This usually takes only a few seconds."
-                                imageUrl={caseData?.image?.file_url}
-                            />
+                            <div className="flex h-full items-center justify-center bg-zinc-950">
+                                <div className="flex flex-col items-center gap-3">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                    <span className="text-zinc-500 text-sm">Loading X-ray...</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {!aiReady && fileUrl && (
+                            <div className="absolute inset-0 z-10 pointer-events-none">
+                                <LungScanAnimation
+                                    label="AI Analysis in Progress"
+                                    sublabel="Generating lung masks and detecting abnormalities. This usually takes 15-30 seconds."
+                                    imageUrl={fileUrl}
+                                    className="opacity-40"
+                                />
+                                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-cyan-500/30 flex items-center gap-3">
+                                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                                    <span className="text-white text-xs font-bold uppercase tracking-wider">AI Inference Running</span>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

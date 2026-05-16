@@ -35,9 +35,9 @@ const fetchLogs = async (): Promise<AuditLog[]> => {
             user_id: log.user_id ? String(log.user_id).substring(0, 8) : 'system',
             user_name: log.user_name || `User ${log.user_id ? String(log.user_id).substring(0, 8) : 'system'}`,
             action: log.action_type || log.action || 'Unknown',
-            resource: log.resource || log.details || '-',
+            resource: log.resource || (typeof log.details === 'object' ? JSON.stringify(log.details) : log.details) || '-',
             ip_address: log.ip_address || '-',
-            status: (log.action_type?.toLowerCase().includes('fail') || log.action_type?.toLowerCase().includes('error') ? 'Failure' : 'Success') as 'Success' | 'Failure',
+            status: (String(log.action_type || '').toLowerCase().includes('fail') || String(log.action_type || '').toLowerCase().includes('error') ? 'Failure' : 'Success') as 'Success' | 'Failure',
         })).sort((a: AuditLog, b: AuditLog) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch {
         return [];

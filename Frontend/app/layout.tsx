@@ -41,7 +41,7 @@ export default function RootLayout({
       <body className={`${nunito.variable} font-sans antialiased text-foreground`}>
         <QueryProvider>
           {children}
-          <Toaster position="top-center" richColors />
+          <Toaster position="top-right" richColors />
         </QueryProvider>
         <Analytics />
       </body>

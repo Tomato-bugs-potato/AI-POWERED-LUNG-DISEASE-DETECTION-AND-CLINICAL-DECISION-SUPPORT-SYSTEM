@@ -14,6 +14,10 @@ export interface User {
     role: Role;
     hospital_id?: string;
     status: UserStatus;
+    phone_number?: string;
+    avatar_url?: string;
+    created_at?: string;
+    last_login?: string;
 }
 
 export type PatientSex = 'Male' | 'Female';

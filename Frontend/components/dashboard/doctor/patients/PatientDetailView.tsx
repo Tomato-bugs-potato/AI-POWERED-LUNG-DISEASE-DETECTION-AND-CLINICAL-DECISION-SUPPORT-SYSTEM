@@ -1,6 +1,6 @@
 'use client';
 
- import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ArrowLeft, User, Phone, Calendar, Upload, FileText, AlertCircle } from 'lucide-react';
@@ -155,11 +155,11 @@ export function PatientDetailView({ patientId, initialData }: PatientDetailViewP
                             <div>
                                 <h4 className="text-sm font-semibold text-red-800 dark:text-red-300">Active Diagnosis Pending</h4>
                                 <p className="text-sm text-red-600 dark:text-red-400 mt-1">This patient has {activeCases.length} case(s) currently awaiting diagnosis.</p>
-                                <div className="mt-3 flex gap-2">
+                                <div className="mt-3 flex flex-wrap gap-2">
                                     {activeCases.map((c: Case) => (
                                         <Link key={c.case_id} href={`/doctor/cases/${c.case_id}`}>
                                             <Button size="sm" variant="outline" className="h-8 bg-white border-red-200 text-red-700 hover:bg-red-50 dark:bg-zinc-900 dark:border-red-800 dark:text-red-300">
-                                                Review {c.case_id}
+                                                Review {c.case_id.substring(0, 8)}...
                                             </Button>
                                         </Link>
                                     ))}
@@ -202,7 +202,9 @@ export function PatientDetailView({ patientId, initialData }: PatientDetailViewP
                                                         <td className="px-4 py-4 text-gray-600 dark:text-gray-400">
                                                             {format(new Date(c.upload_date), 'MMM d, yyyy')}
                                                         </td>
-                                                        <td className="px-4 py-4 font-mono text-gray-900 dark:text-gray-100">{c.case_id}</td>
+                                                        <td className="px-4 py-4 font-mono text-xs text-gray-900 dark:text-gray-100" title={c.case_id}>
+                                                            {c.case_id.substring(0, 13)}...
+                                                        </td>
                                                         <td className="px-4 py-4">
                                                             <CaseStatusBadge status={c.status} />
                                                         </td>

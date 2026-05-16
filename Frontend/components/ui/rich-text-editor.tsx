@@ -3,8 +3,6 @@
 import * as React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import BulletList from '@tiptap/extension-bullet-list';
-import ListItem from '@tiptap/extension-list-item';
 import { Bold, Italic, List, ListOrdered, Undo, Redo } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Label } from '@/components/ui/label';
@@ -22,8 +20,6 @@ export function RichTextEditor({ value, onChange, label, autoSave = false }: Ric
     const editor = useEditor({
         extensions: [
             StarterKit,
-            BulletList,
-            ListItem,
         ],
         content: value,
         immediatelyRender: false,
