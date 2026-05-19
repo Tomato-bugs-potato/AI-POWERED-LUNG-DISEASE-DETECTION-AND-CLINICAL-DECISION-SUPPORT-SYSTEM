@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send, Eye, EyeOff, Check, X, AlertTriangle, RotateCcw, Flame, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -58,29 +58,21 @@ export default function ReviewPredictionsPage() {
     const router = useRouter();
     const caseId = params.caseId as string;
 
+    // Single query that polls the full case endpoint.
+    // Once inference results are present, polling stops and data is cached.
     const { data: caseMeta, isLoading: isLoadingMeta } = useQuery({
         queryKey: ['case-meta', caseId],
         queryFn: () => fetchCaseMeta(caseId),
-        staleTime: Infinity,
+        refetchInterval: (query) => {
+            const data = query.state.data;
+            const hasInference = !!data?.images?.[0]?.inference_results?.[0];
+            return hasInference ? false : 2000;
+        },
+        staleTime: 0, // always re-validate while polling
     });
 
     const firstImageRaw = caseMeta?.images?.[0];
     const imageId = firstImageRaw?.image_id;
-
-    // 2. Poll for inference status (lightweight)
-    const { data: caseStatus } = useQuery({
-        queryKey: ['case-status', caseId],
-        queryFn: async () => {
-            const resp = await api.get(`/cases/${caseId}/status`);
-            return resp.data;
-        },
-        // Only poll if inference wasn't ready on the first meta fetch
-        enabled: !!caseId && !firstImageRaw?.inference_results?.[0],
-        refetchInterval: (query) => {
-            return query.state.data?.inference_ready ? false : 1500;
-        },
-    });
-
     const aiReady = !!firstImageRaw?.inference_results?.[0];
 
     // 3. Fetch image blob (ONLY ONCE)
@@ -99,15 +91,7 @@ export default function ReviewPredictionsPage() {
         staleTime: Infinity,
     });
 
-    // Derived inference results.
-    // If polling finishes, we need the main meta query to re-fetch to get the
-    // heavy inference results (predictions, segmentation).
-    const queryClient = useQueryClient();
-    React.useEffect(() => {
-        if (caseStatus?.inference_ready) {
-            queryClient.invalidateQueries({ queryKey: ['case-meta', caseId] });
-        }
-    }, [caseStatus?.inference_ready, queryClient, caseId]);
+
 
     const inferenceResult = React.useMemo(() => {
         if (!caseMeta) return null;
