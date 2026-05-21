@@ -76,6 +76,7 @@ class PredictRequest(BaseModel):
     image_base64: str = None
     image_url: str = None
     image_format: str
+    skip_heatmap: bool = False
 
 MODEL_VERSION = "ensembled-v3.0.0"
 
@@ -110,6 +111,32 @@ async def predict(request: PredictRequest, x_internal_api_key: str = Header(None
         # 2. Run Ensemble Inference
         predictions, cls_probs = ensemble_engine.run_inference(pil_img, metadata)
         
+        # 3. Pre-compute Grad-CAM Heatmap (skipped for duplicate overrides)
+        heatmap_base64 = None
+        if not request.skip_heatmap:
+            try:
+                from ai_service.model.gradcam import GradCAM, generate_heatmap_overlay
+                import torchvision.transforms.v2 as transforms
+                
+                torch_model = ensemble_engine.det_model.model
+                gradcam = GradCAM(torch_model)
+                
+                input_t = transforms.Compose([
+                    transforms.Resize((ensemble_engine.img_size_det, ensemble_engine.img_size_det)),
+                    transforms.ToImage(),
+                    transforms.ToDtype(dtype=torch.float32, scale=True),
+                ])(pil_img)[None].to(ensemble_engine.device)
+
+                heatmap_t = gradcam.generate(input_t)
+                overlay = generate_heatmap_overlay(pil_img, heatmap_t)
+
+                buffer = io.BytesIO()
+                overlay.save(buffer, format="PNG")
+                heatmap_base64 = base64.b64encode(buffer.getvalue()).decode()
+                gradcam.cleanup()
+            except Exception as e:
+                logger.error(f"Predict heatmap generation failed: {e}", exc_info=True)
+
         processing_time = time.time() - start_time
         logger.info(f"Done. {len(predictions)} dets. Time: {processing_time:.2f}s")
         
@@ -118,6 +145,7 @@ async def predict(request: PredictRequest, x_internal_api_key: str = Header(None
             "predictions": predictions,
             "classification_probs": cls_probs,
             "metadata": metadata,
+            "heatmap_base64": heatmap_base64,
             "processing_time_sec": processing_time,
             "model_version": MODEL_VERSION
         }

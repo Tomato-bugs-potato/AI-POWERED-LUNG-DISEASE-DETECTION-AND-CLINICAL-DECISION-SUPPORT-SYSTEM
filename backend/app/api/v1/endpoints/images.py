@@ -187,6 +187,7 @@ async def _process_image_upload(
                 case_id=case_id,
                 file_bytes=file_bytes,
                 format_value=format_enum.value,
+                existing_image_id=existing.image_id if existing else None,
             )
 
         return ImageUploadResponse(image_id=saved_image_id, case_id=case_id)
@@ -205,6 +206,7 @@ async def run_inference_in_background(
     case_id: uuid.UUID,
     file_bytes: bytes,
     format_value: str,
+    existing_image_id: uuid.UUID | None = None,
 ):
     """Call the HF Space AI service and persist the result.
 
@@ -214,6 +216,19 @@ async def run_inference_in_background(
     """
     import httpx
     import base64
+
+    heatmap_already_saved = False
+    if existing_image_id:
+        print(f"[INFERENCE-BG] Attempting to clone heatmap from existing_image={existing_image_id}", flush=True)
+        try:
+            from app.services.storage import get_file_data, upload_file
+            old_heatmap_bytes, _ = get_file_data(settings.MINIO_BUCKET_IMAGES, f"heatmaps/{existing_image_id}.png")
+            heatmap_object_name = f"heatmaps/{image_id}.png"
+            upload_file(settings.MINIO_BUCKET_IMAGES, heatmap_object_name, old_heatmap_bytes, "image/png")
+            print(f"[INFERENCE-BG] Successfully cloned heatmap for {image_id}", flush=True)
+            heatmap_already_saved = True
+        except Exception as e:
+            print(f"[INFERENCE-BG] Could not clone heatmap: {e}. Will generate normally.", flush=True)
 
     inference_id = uuid.uuid4()
     image_b64 = base64.b64encode(file_bytes).decode("utf-8")
@@ -230,6 +245,7 @@ async def run_inference_in_background(
                     "inference_id": str(inference_id),
                     "image_base64": image_b64,
                     "image_format": format_value,
+                    "skip_heatmap": heatmap_already_saved,
                 },
                 headers={"X-Internal-API-Key": settings.AI_INTERNAL_API_KEY},
             )
@@ -250,6 +266,40 @@ async def run_inference_in_background(
     if ai_data.get("error"):
         print(f"[INFERENCE-BG] AI returned error: {ai_data.get('error')}", flush=True)
         return
+
+    heatmap_b64 = ai_data.get("heatmap_base64")
+
+    # Hot-wire: If the AI service is an older deployment that doesn't return
+    # heatmap_base64 directly in /predict, explicitly fetch it here in the background
+    if not heatmap_b64 and not heatmap_already_saved:
+        print("[INFERENCE-BG] heatmap_base64 missing. Hot-wiring fallback call to /heatmap...", flush=True)
+        try:
+            async with httpx.AsyncClient(timeout=settings.AI_INFERENCE_TIMEOUT_SECONDS) as client:
+                hm_response = await client.post(
+                    f"{settings.AI_SERVICE_URL}/heatmap",
+                    json={
+                        "inference_id": str(inference_id),
+                        "image_base64": image_b64,
+                        "image_format": format_value,
+                    },
+                    headers={"X-Internal-API-Key": settings.AI_INTERNAL_API_KEY},
+                )
+            if hm_response.status_code == 200:
+                hm_data = hm_response.json()
+                heatmap_b64 = hm_data.get("heatmap_base64")
+        except Exception as e:
+            print(f"[INFERENCE-BG] Hot-wire heatmap call failed: {e}", flush=True)
+
+    # Cache the pre-computed Grad-CAM heatmap directly to MinIO
+    if heatmap_b64 and not heatmap_already_saved:
+        from app.services.storage import upload_file
+        try:
+            heatmap_bytes = base64.b64decode(heatmap_b64)
+            heatmap_object_name = f"heatmaps/{image_id}.png"
+            upload_file(settings.MINIO_BUCKET_IMAGES, heatmap_object_name, heatmap_bytes, "image/png")
+            print(f"[INFERENCE-BG] Pre-computed heatmap saved to {heatmap_object_name}", flush=True)
+        except Exception as e:
+            print(f"[INFERENCE-BG] Failed to save pre-computed heatmap: {e}", flush=True)
 
     from app.models.inference_result import InferenceResult
 

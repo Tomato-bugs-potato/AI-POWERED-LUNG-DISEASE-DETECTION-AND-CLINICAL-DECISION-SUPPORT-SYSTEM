@@ -174,14 +174,7 @@ export function CaseDetailsView({ initialData, caseId }: CaseDetailsViewProps) {
         },
     });
 
-    React.useEffect(() => {
-        return () => {
-            if (heatmapBlobUrl) {
-                URL.revokeObjectURL(heatmapBlobUrl);
-                queryClient.setQueryData(['doctor-heatmap', imageId], null);
-            }
-        };
-    }, [heatmapBlobUrl, imageId, queryClient]);
+
 
     const handleToggleHeatmap = () => {
         if (!showHeatmap && !imageId) {

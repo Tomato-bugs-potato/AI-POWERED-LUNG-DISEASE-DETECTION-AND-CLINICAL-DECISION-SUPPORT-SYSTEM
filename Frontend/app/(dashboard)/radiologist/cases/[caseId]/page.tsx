@@ -161,12 +161,7 @@ export default function ReviewPredictionsPage() {
         },
     });
 
-    React.useEffect(() => {
-        return () => {
-            if (heatmapBlobUrl) URL.revokeObjectURL(heatmapBlobUrl);
-            if (fileUrl) URL.revokeObjectURL(fileUrl);
-        };
-    }, [heatmapBlobUrl, fileUrl]);
+
 
     const handleToggleHeatmap = () => {
         if (!showHeatmap && !imageId) {

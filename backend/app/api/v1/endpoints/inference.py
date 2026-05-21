@@ -76,6 +76,18 @@ async def get_inference_heatmap(
     if not db_img:
         raise HTTPException(status_code=404, detail="Image not found")
 
+    heatmap_object_name = f"heatmaps/{image_id}.png"
+    try:
+        heatmap_bytes, content_type = get_file_data(settings.MINIO_BUCKET_IMAGES, heatmap_object_name)
+        return Response(
+            content=heatmap_bytes,
+            media_type="image/png",
+            headers={"Cache-Control": "private, max-age=900"},
+        )
+    except Exception:
+        # Fallback to dynamic generation if pre-computed heatmap is missing
+        pass
+
     try:
         file_bytes, _ = get_file_data(settings.MINIO_BUCKET_IMAGES, db_img.file_url)
     except Exception as e:
@@ -165,7 +177,37 @@ async def retry_inference(
         if ai_data.get("error"):
              raise HTTPException(status_code=502, detail=f"AI service error: {ai_data.get('error')}")
 
-        # 4. Update or Create Inference Record
+        # 4. Save Heatmap to MinIO if present, otherwise hot-wire fetch it!
+        heatmap_b64 = ai_data.get("heatmap_base64")
+        if not heatmap_b64:
+            print("[RETRY] heatmap_base64 missing. Hot-wiring fallback call to /heatmap...", flush=True)
+            try:
+                async with httpx.AsyncClient(timeout=settings.AI_INFERENCE_TIMEOUT_SECONDS) as client:
+                    hm_response = await client.post(
+                        f"{settings.AI_SERVICE_URL}/heatmap",
+                        json={
+                            "inference_id": str(inference_id),
+                            "image_base64": image_b64,
+                            "image_format": db_img.file_format.value,
+                        },
+                        headers={"X-Internal-API-Key": settings.AI_INTERNAL_API_KEY},
+                    )
+                if hm_response.status_code == 200:
+                    hm_data = hm_response.json()
+                    heatmap_b64 = hm_data.get("heatmap_base64")
+            except Exception as e:
+                print(f"[RETRY] Hot-wire heatmap call failed: {e}", flush=True)
+
+        if heatmap_b64:
+            from app.services.storage import upload_file
+            try:
+                heatmap_bytes = base64.b64decode(heatmap_b64)
+                heatmap_object_name = f"heatmaps/{image_id}.png"
+                upload_file(settings.MINIO_BUCKET_IMAGES, heatmap_object_name, heatmap_bytes, "image/png")
+            except Exception as e:
+                print(f"[RETRY] Failed to save pre-computed heatmap: {e}", flush=True)
+
+        # 5. Update or Create Inference Record
         stmt_inf = select(InferenceResult).where(InferenceResult.image_id == image_id)
         res_inf = await db.execute(stmt_inf)
         inference_record = res_inf.scalar_one_or_none()
