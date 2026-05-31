@@ -1,5 +1,3 @@
-<![CDATA[<div align="center">
-
 # 🫁 AI-Powered Lung Disease Detection & Clinical Decision Support System
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -15,15 +13,24 @@
 
 ---
 
-[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [API Reference](#-api-reference) · [Deployment](#-deployment) · [Project Structure](#-project-structure)
+## Table of Contents
 
-</div>
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Quick Start](#-quick-start)
+- [API Reference](#-api-reference)
+- [Deployment](#-deployment)
+- [Project Structure](#-project-structure)
+- [Tech Stack](#-tech-stack)
+- [Environment Variables](#-environment-variables)
+- [License](#-license)
 
 ---
 
 ## ✨ Features
 
 ### 🤖 AI Inference Pipeline
+
 - **Multi-model ensemble** — YOLOv12m object detection + EfficientNet-B0 classification + Lungmask U-Net segmentation
 - **15-class lung disease detection** — including Pneumonia, Tuberculosis, Cardiomegaly, Effusion, and more
 - **Confidence scoring** with per-prediction probability distributions
@@ -31,6 +38,7 @@
 - Deployed on **Hugging Face Spaces** with Docker SDK
 
 ### 🏥 Clinical Workflow
+
 - **Patient management** — registration, demographics, medical history tracking
 - **Case lifecycle** — upload X-rays → AI inference → radiologist review → doctor diagnosis → PDF report
 - **Rich-text diagnosis editor** (TipTap) with treatment recommendations
@@ -39,6 +47,7 @@
 - **CSV export** for external medical records integration
 
 ### 🔐 Security & Compliance
+
 - **Role-Based Access Control (RBAC)** — Doctor, Radiologist, Lab Technician, Admin
 - **JWT authentication** with short-lived access + long-lived refresh tokens
 - **Two-Factor Authentication (OTP)** via email
@@ -47,6 +56,7 @@
 - **Argon2 password hashing**
 
 ### 📊 Operations & Observability
+
 - **Prometheus metrics** with `prometheus-fastapi-instrumentator`
 - **Structured JSON logging** via `structlog`
 - **Automated database backups** (pg_dump → MinIO/S3) with configurable retention
@@ -55,6 +65,7 @@
 - **Health checks** for all services (API, DB, Redis, MinIO)
 
 ### 🌐 Frontend Dashboard
+
 - **Next.js 16** with React 19 and App Router
 - **Radix UI + TailwindCSS 4** component system (shadcn/ui)
 - **Dark/Light theme** support via `next-themes`
@@ -69,46 +80,46 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Client (Browser)                         │
-│                  Next.js 16 · React 19 · Radix UI               │
+│                      Client (Browser)                           │
+│               Next.js 16 · React 19 · Radix UI                 │
 └────────────────────────────┬────────────────────────────────────┘
                              │ HTTPS / REST
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Nginx Reverse Proxy                          │
-│                   (TLS termination · rate limiting)               │
+│                     Nginx Reverse Proxy                         │
+│                (TLS termination · rate limiting)                │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    FastAPI Application (api)                      │
-│   Auth · Patients · Cases · Images · Inference · Diagnoses       │
-│   Radiologist Reviews · Reports · Users · Audit Logs · Health    │
+│               FastAPI Application (api)                         │
+│   Auth · Patients · Cases · Images · Inference · Diagnoses      │
+│   Radiologist Reviews · Reports · Users · Audit Logs · Health   │
 ├─────────────────┬───────────────────┬───────────────────────────┤
-│   SQLAlchemy    │     Redis         │      MinIO / S3           │
-│   (asyncpg)     │  (cache · broker) │  (images · reports ·      │
-│                 │                   │   avatars · backups)       │
+│   SQLAlchemy    │      Redis        │       MinIO / S3          │
+│   (asyncpg)     │ (cache · broker)  │  (images · reports ·      │
+│                 │                   │   avatars · backups)      │
 └────────┬────────┴─────────┬─────────┴───────────────────────────┘
          │                  │
          ▼                  ▼
 ┌────────────────┐  ┌──────────────────────────────────────────┐
-│  PostgreSQL    │  │         Celery Workers                    │
-│  Master ←→     │  │  Queues: inference · reports · emails ·   │
-│  Replica       │  │          backups · celery (default)       │
+│  PostgreSQL    │  │             Celery Workers                │
+│  Master ←→     │  │  Queues: inference · reports · emails ·  │
+│  Replica       │  │          backups · celery (default)      │
 └────────────────┘  └──────────────┬───────────────────────────┘
                                    │ HTTP
                                    ▼
                     ┌──────────────────────────────┐
-                    │  Hugging Face Space (Docker)  │
-                    │  YOLOv12m + EfficientNet-B0  │
-                    │  + Lungmask U-Net            │
+                    │   Hugging Face Space (Docker) │
+                    │   YOLOv12m + EfficientNet-B0  │
+                    │       + Lungmask U-Net        │
                     └──────────────────────────────┘
 ```
 
 ### Service Map (Docker Compose)
 
 | Service | Container | Port | Role |
-|---------|-----------|------|------|
+|---|---|---|---|
 | `api` | `lung_api` | 8000 | FastAPI application server |
 | `postgres` | `lung_db` | 5432 | Primary PostgreSQL database |
 | `postgres-replica` | `lung_db_replica` | 5433 | Read replica (streaming replication) |
@@ -131,7 +142,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-org>/AI-POWERED-LUNG-DISEASE-DETECTION-AND-CLINICAL-DECISION-SUPPORT-SYSTEM.git
+git clone https://github.com/<your-username>/AI-POWERED-LUNG-DISEASE-DETECTION-AND-CLINICAL-DECISION-SUPPORT-SYSTEM.git
 cd AI-POWERED-LUNG-DISEASE-DETECTION-AND-CLINICAL-DECISION-SUPPORT-SYSTEM
 ```
 
@@ -186,7 +197,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 When `SEED_TEST_USERS=true` is set in `backend/.env`, the following accounts are auto-created on startup:
 
 | Role | Email | Password |
-|------|-------|----------|
+|---|---|---|
 | Admin | `admin@test.com` | `password` |
 | Doctor | `doctor@test.com` | `password` |
 
@@ -205,7 +216,7 @@ Interactive docs available at:
 ### Authentication
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `POST` | `/auth/register` | Register a new user |
 | `POST` | `/auth/login` | Authenticate & receive JWT tokens |
 | `POST` | `/auth/verify-otp` | Verify OTP for 2FA |
@@ -216,7 +227,7 @@ Interactive docs available at:
 ### Patients
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `POST` | `/patients/` | Register a new patient |
 | `GET` | `/patients/` | List patients with pagination |
 | `GET` | `/patients/{id}` | Get patient details |
@@ -225,7 +236,7 @@ Interactive docs available at:
 ### Cases & Imaging
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `POST` | `/cases/` | Create a new diagnostic case |
 | `GET` | `/cases/` | List cases for current doctor |
 | `GET` | `/cases/{id}` | Get case with all relationships |
@@ -236,7 +247,7 @@ Interactive docs available at:
 ### Clinical Workflow
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `POST` | `/reviews/` | Submit radiologist review |
 | `POST` | `/diagnoses/` | Submit doctor diagnosis |
 | `POST` | `/reports/{case_id}/regenerate` | Generate / regenerate PDF report |
@@ -247,7 +258,7 @@ Interactive docs available at:
 ### Administration
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `GET` | `/users/` | List all users (Admin) |
 | `PATCH` | `/users/{id}/role` | Update user role |
 | `GET` | `/logs/` | Query audit trail |
@@ -319,8 +330,9 @@ git push hf main
 ```
 
 **Models included:**
+
 | Model | Task | Architecture |
-|-------|------|-------------|
+|---|---|---|
 | YOLOv12m | Object detection (lesion localization) | Ultralytics YOLO |
 | EfficientNet-B0 | Classification (15 diseases) | PyTorch / timm |
 | Lungmask | Lung segmentation | U-Net (R231) |
@@ -334,42 +346,42 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 │
 ├── backend/                          # FastAPI backend monolith
 │   ├── app/
-│   │   ├── api/v1/endpoints/         # REST endpoint modules
-│   │   │   ├── auth.py               #   Authentication & 2FA
-│   │   │   ├── patients.py           #   Patient CRUD
-│   │   │   ├── cases.py              #   Diagnostic case management
-│   │   │   ├── images.py             #   X-ray upload & DICOM handling
-│   │   │   ├── inference.py          #   AI inference orchestration
-│   │   │   ├── diagnoses.py          #   Doctor diagnosis submission
-│   │   │   ├── reviews.py            #   Radiologist review submission
-│   │   │   ├── reports.py            #   PDF report generation & export
-│   │   │   ├── users.py              #   User management (Admin)
-│   │   │   ├── logs.py               #   Audit trail queries
-│   │   │   └── health.py             #   Health & readiness probes
+│   │   ├── api/v1/endpoints/
+│   │   │   ├── auth.py               # Authentication & 2FA
+│   │   │   ├── patients.py           # Patient CRUD
+│   │   │   ├── cases.py              # Diagnostic case management
+│   │   │   ├── images.py             # X-ray upload & DICOM handling
+│   │   │   ├── inference.py          # AI inference orchestration
+│   │   │   ├── diagnoses.py          # Doctor diagnosis submission
+│   │   │   ├── reviews.py            # Radiologist review submission
+│   │   │   ├── reports.py            # PDF report generation & export
+│   │   │   ├── users.py              # User management (Admin)
+│   │   │   ├── logs.py               # Audit trail queries
+│   │   │   └── health.py             # Health & readiness probes
 │   │   ├── models/                   # SQLAlchemy ORM models
-│   │   │   ├── user.py               #   User (Doctor, Radiologist, Admin)
-│   │   │   ├── patient.py            #   Patient demographics (encrypted)
-│   │   │   ├── case.py               #   Clinical case
-│   │   │   ├── image.py              #   Medical image metadata
-│   │   │   ├── inference_result.py   #   AI prediction output
-│   │   │   ├── diagnosis.py          #   Doctor diagnosis record
-│   │   │   ├── radiologist_review.py #   Radiologist findings
-│   │   │   ├── report.py             #   Generated PDF report
-│   │   │   ├── audit_log.py          #   Audit trail entry
-│   │   │   ├── hospital.py           #   Hospital/facility
-│   │   │   └── session.py            #   User sessions
-│   │   ├── core/                     # Cross-cutting concerns
-│   │   │   ├── security.py           #   JWT, Argon2, AES encryption
-│   │   │   ├── rbac.py               #   Role-based access control
-│   │   │   ├── audit.py              #   Audit logging helper
-│   │   │   └── redis.py              #   Redis connection manager
+│   │   │   ├── user.py
+│   │   │   ├── patient.py            # Patient demographics (encrypted)
+│   │   │   ├── case.py
+│   │   │   ├── image.py
+│   │   │   ├── inference_result.py
+│   │   │   ├── diagnosis.py
+│   │   │   ├── radiologist_review.py
+│   │   │   ├── report.py
+│   │   │   ├── audit_log.py
+│   │   │   ├── hospital.py
+│   │   │   └── session.py
+│   │   ├── core/
+│   │   │   ├── security.py           # JWT, Argon2, AES encryption
+│   │   │   ├── rbac.py               # Role-based access control
+│   │   │   ├── audit.py              # Audit logging helper
+│   │   │   └── redis.py              # Redis connection manager
 │   │   ├── workers/                  # Celery async tasks
-│   │   │   ├── celery_app.py         #   Celery application config
-│   │   │   ├── celery_beat.py        #   Scheduled task definitions
-│   │   │   ├── inference_tasks.py    #   AI inference orchestration
-│   │   │   ├── report_tasks.py       #   PDF report generation
-│   │   │   ├── email_tasks.py        #   OTP & notification emails
-│   │   │   └── backup_tasks.py       #   Automated DB backups
+│   │   │   ├── celery_app.py
+│   │   │   ├── celery_beat.py
+│   │   │   ├── inference_tasks.py
+│   │   │   ├── report_tasks.py
+│   │   │   ├── email_tasks.py
+│   │   │   └── backup_tasks.py
 │   │   ├── services/                 # External service integrations
 │   │   ├── schemas/                  # Pydantic request/response schemas
 │   │   ├── db/                       # Database session & base config
@@ -379,37 +391,37 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 │   ├── alembic/                      # Database migrations
 │   ├── hf-space/                     # Hugging Face AI inference service
 │   │   ├── ai_service/
-│   │   │   ├── main.py               #   Ensemble inference API
-│   │   │   └── model/                #   Model weights & loaders
-│   │   ├── Dockerfile                #   HF Space Docker config
+│   │   │   ├── main.py               # Ensemble inference API
+│   │   │   └── model/                # Model weights & loaders
+│   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   ├── nginx/                        # Reverse proxy configuration
 │   ├── tests/                        # pytest test suite
 │   ├── docker-compose.yml            # Development orchestration
 │   ├── docker-compose.prod.yml       # Production orchestration
-│   ├── Dockerfile                    # Backend API image
-│   └── requirements.txt              # Python dependencies
+│   ├── Dockerfile
+│   └── requirements.txt
 │
 ├── Frontend/                         # Next.js clinical dashboard
 │   ├── app/
 │   │   ├── (auth)/                   # Login, register, password reset
 │   │   ├── (dashboard)/
 │   │   │   ├── admin/                # Admin panel (user management)
-│   │   │   ├── doctor/               # Doctor workspace
-│   │   │   │   ├── cases/            #   Case list & detail views
-│   │   │   │   ├── patients/         #   Patient registry
-│   │   │   │   ├── reports/          #   Report management & PDF viewer
-│   │   │   │   └── profile/          #   Doctor profile settings
+│   │   │   ├── doctor/
+│   │   │   │   ├── cases/            # Case list & detail views
+│   │   │   │   ├── patients/         # Patient registry
+│   │   │   │   ├── reports/          # Report management & PDF viewer
+│   │   │   │   └── profile/
 │   │   │   ├── radiologist/          # Radiologist review workspace
-│   │   │   └── help/                 # Help & documentation
-│   │   └── landing-page/             # Public landing page
+│   │   │   └── help/
+│   │   └── landing-page/
 │   ├── components/                   # Reusable UI components (93 files)
 │   ├── hooks/                        # Custom React hooks
 │   ├── lib/                          # API client, utilities
 │   ├── store/                        # Zustand state management
 │   ├── messages/                     # i18n translations (en, am)
-│   ├── middleware.ts                 # Auth middleware & route protection
-│   └── Dockerfile                    # Frontend production image
+│   ├── middleware.ts                  # Auth middleware & route protection
+│   └── Dockerfile
 │
 ├── k8s/                              # Kubernetes manifests
 │   ├── namespace.yaml
@@ -431,7 +443,7 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 ├── Docs/                             # Project documentation & research
 ├── evaluate_ensemble.ipynb           # Model evaluation notebook
 ├── final-project-v4 (2).ipynb        # Model training notebook
-└── .github/workflows/               # CI/CD pipeline
+└── .github/workflows/                # CI/CD pipeline
 ```
 
 ---
@@ -439,8 +451,9 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 ## ⚙️ Tech Stack
 
 ### Backend
+
 | Technology | Purpose |
-|------------|---------|
+|---|---|
 | **FastAPI** 0.115 | Async REST API framework |
 | **SQLAlchemy** 2.0 (async) | ORM with asyncpg driver |
 | **Alembic** | Database schema migrations |
@@ -455,8 +468,9 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 | **Prometheus** | Metrics instrumentation |
 
 ### Frontend
+
 | Technology | Purpose |
-|------------|---------|
+|---|---|
 | **Next.js** 16 | React framework with App Router |
 | **React** 19 | UI library |
 | **TailwindCSS** 4 | Utility-first styling |
@@ -470,8 +484,9 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 | **Zod** | Runtime schema validation |
 
 ### AI / ML
+
 | Technology | Purpose |
-|------------|---------|
+|---|---|
 | **YOLOv12m** (Ultralytics) | Lesion detection & localization |
 | **EfficientNet-B0** (timm) | 15-class disease classification |
 | **Lungmask** (U-Net R231) | Lung region segmentation |
@@ -479,8 +494,9 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 | **Hugging Face Spaces** | Model deployment (Docker SDK) |
 
 ### Infrastructure
+
 | Technology | Purpose |
-|------------|---------|
+|---|---|
 | **Docker Compose** | Local & production orchestration |
 | **Kubernetes** | Production-grade cluster deployment |
 | **Nginx** | Reverse proxy, TLS termination |
@@ -490,10 +506,10 @@ AI-POWERED-LUNG-DISEASE-DETECTION/
 
 ## 🔧 Environment Variables
 
-See [`backend/.env.example`](backend/.env.example) for the complete reference. Key configuration groups:
+See [`backend/.env.example`](backend/.env.example) for the complete reference.
 
 | Group | Variables | Description |
-|-------|-----------|-------------|
+|---|---|---|
 | **Database** | `DATABASE_URL`, `DB_POOL_SIZE` | PostgreSQL async connection |
 | **Authentication** | `JWT_SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES` | Token configuration |
 | **Security** | `FIELD_ENCRYPTION_KEY`, `OTP_EXPIRE_MINUTES` | AES encryption & OTP |
@@ -511,11 +527,4 @@ This project is licensed under the **Apache License 2.0** — see the [LICENSE](
 
 ---
 
-<div align="center">
-
-**Built with ❤️ for clinical excellence**
-
-*AI-Powered Lung Disease Detection & Clinical Decision Support System*
-
-</div>
-]]>
+*Built with ❤️ for clinical excellence*
